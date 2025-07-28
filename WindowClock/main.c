@@ -159,9 +159,9 @@ int main(void) {
 	CLKCTRL_MCLKCTRLB = 0b00000000; //分周なし
 
 	//入出力モード設定
-	VPORTA_DIR = 0b00001110; //ポートA 
-	VPORTB_DIR = 0b00000011; //ポートB 
-	VPORTC_DIR = 0b00001111; //ポートC
+	VPORTA_DIR = 0b11111111; //ポートA 
+	VPORTB_DIR = 0b11111111; //ポートB 
+	VPORTC_DIR = 0b11111111; //ポートC
 
 	//出力の初期化
 	VPORTA_OUT = 0b00000000; //ポートA
@@ -169,10 +169,12 @@ int main(void) {
 	VPORTC_OUT = 0b00000000; //ポートC
 
 	//プルアップの有効化 各ピン毎に PINnCTRLで設定 ビット3に1を書くことでプルアップ有効 詳細はデータシートで
-	PORTA_PIN4CTRL = 0b00001000;
-	PORTA_PIN5CTRL = 0b00001000;
-	PORTA_PIN6CTRL = 0b00001000;
-	PORTA_PIN7CTRL = 0b00001000;
+	// PORTA_PIN4CTRL = 0b00001000;
+	// PORTA_PIN5CTRL = 0b00001000;
+	// PORTA_PIN6CTRL = 0b00001000;
+	// PORTA_PIN7CTRL = 0b00001000;
+
+
 	
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル

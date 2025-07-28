@@ -3,29 +3,29 @@ WindowClock.elf:     file format elf32-avr
 
 Sections:
 Idx Name          Size      VMA       LMA       File off  Algn
-  0 .data         00000000  00803800  00803800  000001dc  2**0
+  0 .data         00000000  00803800  00803800  000001c6  2**0
                   CONTENTS, ALLOC, LOAD, DATA
-  1 .text         00000188  00000000  00000000  00000054  2**1
+  1 .text         00000172  00000000  00000000  00000054  2**1
                   CONTENTS, ALLOC, LOAD, READONLY, CODE
-  2 .comment      00000030  00000000  00000000  000001dc  2**0
+  2 .comment      00000030  00000000  00000000  000001c6  2**0
                   CONTENTS, READONLY
-  3 .note.gnu.avr.deviceinfo 00000040  00000000  00000000  0000020c  2**2
+  3 .note.gnu.avr.deviceinfo 00000040  00000000  00000000  000001f8  2**2
                   CONTENTS, READONLY
-  4 .debug_aranges 00000030  00000000  00000000  0000024c  2**0
+  4 .debug_aranges 00000030  00000000  00000000  00000238  2**0
                   CONTENTS, READONLY, DEBUGGING
-  5 .debug_info   00001c51  00000000  00000000  0000027c  2**0
+  5 .debug_info   00001c51  00000000  00000000  00000268  2**0
                   CONTENTS, READONLY, DEBUGGING
-  6 .debug_abbrev 000019c9  00000000  00000000  00001ecd  2**0
+  6 .debug_abbrev 000019c9  00000000  00000000  00001eb9  2**0
                   CONTENTS, READONLY, DEBUGGING
-  7 .debug_line   00000387  00000000  00000000  00003896  2**0
+  7 .debug_line   0000036f  00000000  00000000  00003882  2**0
                   CONTENTS, READONLY, DEBUGGING
-  8 .debug_frame  00000064  00000000  00000000  00003c20  2**2
+  8 .debug_frame  00000064  00000000  00000000  00003bf4  2**2
                   CONTENTS, READONLY, DEBUGGING
-  9 .debug_str    00000c7e  00000000  00000000  00003c84  2**0
+  9 .debug_str    00000c7e  00000000  00000000  00003c58  2**0
                   CONTENTS, READONLY, DEBUGGING
- 10 .debug_loc    000001a0  00000000  00000000  00004902  2**0
+ 10 .debug_loc    000001a0  00000000  00000000  000048d6  2**0
                   CONTENTS, READONLY, DEBUGGING
- 11 .debug_ranges 00000020  00000000  00000000  00004aa2  2**0
+ 11 .debug_ranges 00000020  00000000  00000000  00004a76  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -75,7 +75,7 @@ Disassembly of section .text:
   88:	18 e3       	ldi	r17, 0x38	; 56
   8a:	a0 e0       	ldi	r26, 0x00	; 0
   8c:	b8 e3       	ldi	r27, 0x38	; 56
-  8e:	e8 e8       	ldi	r30, 0x88	; 136
+  8e:	e2 e7       	ldi	r30, 0x72	; 114
   90:	f1 e0       	ldi	r31, 0x01	; 1
   92:	02 c0       	rjmp	.+4      	; 0x98 <__do_copy_data+0x10>
   94:	05 90       	lpm	r0, Z+
@@ -84,7 +84,7 @@ Disassembly of section .text:
   9a:	b1 07       	cpc	r27, r17
   9c:	d9 f7       	brne	.-10     	; 0x94 <__do_copy_data+0xc>
   9e:	0e 94 7c 00 	call	0xf8	; 0xf8 <main>
-  a2:	0c 94 c2 00 	jmp	0x184	; 0x184 <_exit>
+  a2:	0c 94 b7 00 	jmp	0x16e	; 0x16e <_exit>
 
 000000a6 <__bad_interrupt>:
   a6:	0c 94 00 00 	jmp	0	; 0x0 <__vectors>
@@ -156,112 +156,103 @@ int main(void) {
 	//		□ レジスタの設定
 	//■□■――――――――――――――――――――――――――――――――――――■□■
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
-  f8:	98 ed       	ldi	r25, 0xD8	; 216
-  fa:	94 bf       	out	0x34, r25	; 52
+  f8:	88 ed       	ldi	r24, 0xD8	; 216
+  fa:	84 bf       	out	0x34, r24	; 52
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
   fc:	10 92 60 00 	sts	0x0060, r1	; 0x800060 <__RODATA_PM_OFFSET__+0x7f8060>
 	//CLKCTRL_MCLKCTRLA = 0b00000001; //32 KHz内部超低消費電力オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
- 100:	94 bf       	out	0x34, r25	; 52
+ 100:	84 bf       	out	0x34, r24	; 52
 	CLKCTRL_MCLKCTRLB = 0b00000000; //分周なし
  102:	10 92 61 00 	sts	0x0061, r1	; 0x800061 <__RODATA_PM_OFFSET__+0x7f8061>
 
 	//入出力モード設定
-	VPORTA_DIR = 0b00001110; //ポートA 
- 106:	8e e0       	ldi	r24, 0x0E	; 14
- 108:	80 b9       	out	0x00, r24	; 0
-	VPORTB_DIR = 0b00000011; //ポートB 
- 10a:	83 e0       	ldi	r24, 0x03	; 3
- 10c:	84 b9       	out	0x04, r24	; 4
-	VPORTC_DIR = 0b00001111; //ポートC
- 10e:	8f e0       	ldi	r24, 0x0F	; 15
- 110:	88 b9       	out	0x08, r24	; 8
+	VPORTA_DIR = 0b11111111; //ポートA 
+ 106:	9f ef       	ldi	r25, 0xFF	; 255
+ 108:	90 b9       	out	0x00, r25	; 0
+	VPORTB_DIR = 0b11111111; //ポートB 
+ 10a:	94 b9       	out	0x04, r25	; 4
+	VPORTC_DIR = 0b11111111; //ポートC
+ 10c:	98 b9       	out	0x08, r25	; 8
 
 	//出力の初期化
 	VPORTA_OUT = 0b00000000; //ポートA
- 112:	11 b8       	out	0x01, r1	; 1
+ 10e:	11 b8       	out	0x01, r1	; 1
 	VPORTB_OUT = 0b00000000; //ポートB
- 114:	15 b8       	out	0x05, r1	; 5
+ 110:	15 b8       	out	0x05, r1	; 5
 	VPORTC_OUT = 0b00000000; //ポートC
- 116:	19 b8       	out	0x09, r1	; 9
+ 112:	19 b8       	out	0x09, r1	; 9
+	// PORTA_PIN6CTRL = 0b00001000;
+	// PORTA_PIN7CTRL = 0b00001000;
 
-	//プルアップの有効化 各ピン毎に PINnCTRLで設定 ビット3に1を書くことでプルアップ有効 詳細はデータシートで
-	PORTA_PIN4CTRL = 0b00001000;
- 118:	88 e0       	ldi	r24, 0x08	; 8
- 11a:	80 93 14 04 	sts	0x0414, r24	; 0x800414 <__RODATA_PM_OFFSET__+0x7f8414>
-	PORTA_PIN5CTRL = 0b00001000;
- 11e:	80 93 15 04 	sts	0x0415, r24	; 0x800415 <__RODATA_PM_OFFSET__+0x7f8415>
-	PORTA_PIN6CTRL = 0b00001000;
- 122:	80 93 16 04 	sts	0x0416, r24	; 0x800416 <__RODATA_PM_OFFSET__+0x7f8416>
-	PORTA_PIN7CTRL = 0b00001000;
- 126:	80 93 17 04 	sts	0x0417, r24	; 0x800417 <__RODATA_PM_OFFSET__+0x7f8417>
+
 	
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
- 12a:	94 bf       	out	0x34, r25	; 52
+ 114:	84 bf       	out	0x34, r24	; 52
 	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル
- 12c:	81 e0       	ldi	r24, 0x01	; 1
- 12e:	80 93 7c 00 	sts	0x007C, r24	; 0x80007c <__RODATA_PM_OFFSET__+0x7f807c>
+ 116:	81 e0       	ldi	r24, 0x01	; 1
+ 118:	80 93 7c 00 	sts	0x007C, r24	; 0x80007c <__RODATA_PM_OFFSET__+0x7f807c>
 	
 	//RTC設定
 	RTC_INTCTRL = 0b00000010; //比較一致割り込み許可
- 132:	82 e0       	ldi	r24, 0x02	; 2
- 134:	80 93 42 01 	sts	0x0142, r24	; 0x800142 <__RODATA_PM_OFFSET__+0x7f8142>
+ 11c:	82 e0       	ldi	r24, 0x02	; 2
+ 11e:	80 93 42 01 	sts	0x0142, r24	; 0x800142 <__RODATA_PM_OFFSET__+0x7f8142>
 	RTC_CLKSEL  = 0b00000010; //クロック選択 XOSC32Kからの32.768 kHz
- 138:	80 93 47 01 	sts	0x0147, r24	; 0x800147 <__RODATA_PM_OFFSET__+0x7f8147>
+ 122:	80 93 47 01 	sts	0x0147, r24	; 0x800147 <__RODATA_PM_OFFSET__+0x7f8147>
 	//STATUS.CTRLABUSYフラグが1の間待機
 	while((RTC_STATUS & 0b00000001));
- 13c:	80 91 41 01 	lds	r24, 0x0141	; 0x800141 <__RODATA_PM_OFFSET__+0x7f8141>
- 140:	80 fd       	sbrc	r24, 0
- 142:	fc cf       	rjmp	.-8      	; 0x13c <__EEPROM_REGION_LENGTH__+0x3c>
+ 126:	80 91 41 01 	lds	r24, 0x0141	; 0x800141 <__RODATA_PM_OFFSET__+0x7f8141>
+ 12a:	80 fd       	sbrc	r24, 0
+ 12c:	fc cf       	rjmp	.-8      	; 0x126 <__EEPROM_REGION_LENGTH__+0x26>
 	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周 RTC許可
- 144:	89 ef       	ldi	r24, 0xF9	; 249
- 146:	80 93 40 01 	sts	0x0140, r24	; 0x800140 <__RODATA_PM_OFFSET__+0x7f8140>
+ 12e:	89 ef       	ldi	r24, 0xF9	; 249
+ 130:	80 93 40 01 	sts	0x0140, r24	; 0x800140 <__RODATA_PM_OFFSET__+0x7f8140>
 
 	//割り込みたい間隔の秒数-1
 	RTC_CMP = 59;
- 14a:	8b e3       	ldi	r24, 0x3B	; 59
- 14c:	90 e0       	ldi	r25, 0x00	; 0
- 14e:	80 93 4c 01 	sts	0x014C, r24	; 0x80014c <__RODATA_PM_OFFSET__+0x7f814c>
- 152:	90 93 4d 01 	sts	0x014D, r25	; 0x80014d <__RODATA_PM_OFFSET__+0x7f814d>
- 156:	8f e1       	ldi	r24, 0x1F	; 31
- 158:	9e e4       	ldi	r25, 0x4E	; 78
- 15a:	01 97       	sbiw	r24, 0x01	; 1
- 15c:	f1 f7       	brne	.-4      	; 0x15a <__EEPROM_REGION_LENGTH__+0x5a>
- 15e:	00 c0       	rjmp	.+0      	; 0x160 <__EEPROM_REGION_LENGTH__+0x60>
- 160:	00 00       	nop
+ 134:	8b e3       	ldi	r24, 0x3B	; 59
+ 136:	90 e0       	ldi	r25, 0x00	; 0
+ 138:	80 93 4c 01 	sts	0x014C, r24	; 0x80014c <__RODATA_PM_OFFSET__+0x7f814c>
+ 13c:	90 93 4d 01 	sts	0x014D, r25	; 0x80014d <__RODATA_PM_OFFSET__+0x7f814d>
+ 140:	8f e1       	ldi	r24, 0x1F	; 31
+ 142:	9e e4       	ldi	r25, 0x4E	; 78
+ 144:	01 97       	sbiw	r24, 0x01	; 1
+ 146:	f1 f7       	brne	.-4      	; 0x144 <__EEPROM_REGION_LENGTH__+0x44>
+ 148:	00 c0       	rjmp	.+0      	; 0x14a <__EEPROM_REGION_LENGTH__+0x4a>
+ 14a:	00 00       	nop
 
 
 	//少し待機
 	_delay_ms(5);
 
 	sei(); //割り込み許可
- 162:	78 94       	sei
+ 14c:	78 94       	sei
 	
 	//set_sleep_mode(SLEEP_MODE_PWR_DOWN); //スリープモードを設定
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
- 164:	e0 e5       	ldi	r30, 0x50	; 80
- 166:	f0 e0       	ldi	r31, 0x00	; 0
- 168:	80 81       	ld	r24, Z
- 16a:	89 7f       	andi	r24, 0xF9	; 249
- 16c:	82 60       	ori	r24, 0x02	; 2
- 16e:	80 83       	st	Z, r24
+ 14e:	e0 e5       	ldi	r30, 0x50	; 80
+ 150:	f0 e0       	ldi	r31, 0x00	; 0
+ 152:	80 81       	ld	r24, Z
+ 154:	89 7f       	andi	r24, 0xF9	; 249
+ 156:	82 60       	ori	r24, 0x02	; 2
+ 158:	80 83       	st	Z, r24
 
 	while (1) {
 
 		sleep_mode();
- 170:	e0 e5       	ldi	r30, 0x50	; 80
- 172:	f0 e0       	ldi	r31, 0x00	; 0
- 174:	80 81       	ld	r24, Z
- 176:	81 60       	ori	r24, 0x01	; 1
- 178:	80 83       	st	Z, r24
- 17a:	88 95       	sleep
- 17c:	80 81       	ld	r24, Z
- 17e:	8e 7f       	andi	r24, 0xFE	; 254
- 180:	80 83       	st	Z, r24
- 182:	f6 cf       	rjmp	.-20     	; 0x170 <__EEPROM_REGION_LENGTH__+0x70>
+ 15a:	e0 e5       	ldi	r30, 0x50	; 80
+ 15c:	f0 e0       	ldi	r31, 0x00	; 0
+ 15e:	80 81       	ld	r24, Z
+ 160:	81 60       	ori	r24, 0x01	; 1
+ 162:	80 83       	st	Z, r24
+ 164:	88 95       	sleep
+ 166:	80 81       	ld	r24, Z
+ 168:	8e 7f       	andi	r24, 0xFE	; 254
+ 16a:	80 83       	st	Z, r24
+ 16c:	f6 cf       	rjmp	.-20     	; 0x15a <__EEPROM_REGION_LENGTH__+0x5a>
 
-00000184 <_exit>:
- 184:	f8 94       	cli
+0000016e <_exit>:
+ 16e:	f8 94       	cli
 
-00000186 <__stop_program>:
- 186:	ff cf       	rjmp	.-2      	; 0x186 <__stop_program>
+00000170 <__stop_program>:
+ 170:	ff cf       	rjmp	.-2      	; 0x170 <__stop_program>
