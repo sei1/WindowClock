@@ -120,31 +120,31 @@ void rotate_p (void) {
 	VPORTB_OUT = VPORTB_OUT | 0b00000001;
 }
 
-// ISR(RTC_CNT_vect) {
-// 	RTC_CNT = 0;
-// 	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
+ISR(RTC_CNT_vect) {
+	RTC_CNT = 0;
+	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
 	
 	
-// 	// VPORTA_OUT = VPORTA_OUT | 0b00001000;
-// 	// _delay_ms(5);
-// 	// VPORTA_OUT = VPORTA_OUT & 0b11110111;
-// 	return;
-// }
-
-ISR(RTC_PIT_vect) {
-	RTC_PITINTFLAGS = 0b00000001; //周期割り込み要求フラグ解除
-
-	//10秒に1回LEDを光らせる
-	if(++count == 10) {
-		count = 0;
-
-		VPORTA_OUT = VPORTA_OUT | 0b00001000;
-		_delay_ms(1);
-		VPORTA_OUT = VPORTA_OUT & 0b11110111;
-	}
-	
+	VPORTA_OUT = VPORTA_OUT | 0b00001000;
+	_delay_ms(1);
+	VPORTA_OUT = VPORTA_OUT & 0b11110111;
 	return;
 }
+
+// ISR(RTC_PIT_vect) {
+// 	RTC_PITINTFLAGS = 0b00000001; //周期割り込み要求フラグ解除
+
+// 	//10秒に1回LEDを光らせる
+// 	if(++count == 10) {
+// 		count = 0;
+
+// 		VPORTA_OUT = VPORTA_OUT | 0b00001000;
+// 		_delay_ms(1);
+// 		VPORTA_OUT = VPORTA_OUT & 0b11110111;
+// 	}
+	
+// 	return;
+// }
 
 
 int main(void) {
@@ -178,17 +178,20 @@ int main(void) {
 	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル
 	
 	//RTC設定
-	RTC_INTCTRL = 0b00000000; //比較一致割り込み禁止
+	RTC_INTCTRL = 0b00000010; //比較一致割り込み許可
 	RTC_CLKSEL  = 0b00000010; //クロック選択 XOSC32Kからの32.768 kHz
 	//STATUS.CTRLABUSYフラグが1の間待機
 	while((RTC_STATUS & 0b00000001));
-	RTC_CTRLA   = 0b11110001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周 RTC許可
-	
-	//RTC PIT 周期割り込み設定
-	RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
-	RTC_PITINTCTRL = 0b00000001; //周期割り込み許可
+	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周 RTC許可
 
-	RTC_CMP = 1;
+	//割り込みたい間隔の秒数-1
+	RTC_CMP = 59;
+	
+	// //RTC PIT 周期割り込み設定
+	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
+	// RTC_PITINTCTRL = 0b00000001; //周期割り込み許可
+
+	
 
 
 	//少し待機
@@ -196,7 +199,8 @@ int main(void) {
 
 	sei(); //割り込み許可
 	
-	set_sleep_mode(SLEEP_MODE_PWR_DOWN); //スリープモードを設定
+	//set_sleep_mode(SLEEP_MODE_PWR_DOWN); //スリープモードを設定
+	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
 	while (1) {
 
