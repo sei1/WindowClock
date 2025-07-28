@@ -1,0 +1,274 @@
+
+WindowClock.elf:     file format elf32-avr
+
+Sections:
+Idx Name          Size      VMA       LMA       File off  Algn
+  0 .data         00000002  00803800  00000192  00000206  2**0
+                  CONTENTS, ALLOC, LOAD, DATA
+  1 .text         00000192  00000000  00000000  00000074  2**1
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .comment      00000030  00000000  00000000  00000208  2**0
+                  CONTENTS, READONLY
+  3 .note.gnu.avr.deviceinfo 00000040  00000000  00000000  00000238  2**2
+                  CONTENTS, READONLY
+  4 .debug_aranges 00000030  00000000  00000000  00000278  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  5 .debug_info   00001c51  00000000  00000000  000002a8  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  6 .debug_abbrev 000019c9  00000000  00000000  00001ef9  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  7 .debug_line   00000399  00000000  00000000  000038c2  2**0
+                  CONTENTS, READONLY, DEBUGGING
+  8 .debug_frame  00000058  00000000  00000000  00003c5c  2**2
+                  CONTENTS, READONLY, DEBUGGING
+  9 .debug_str    00000c7e  00000000  00000000  00003cb4  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 10 .debug_loc    00000186  00000000  00000000  00004932  2**0
+                  CONTENTS, READONLY, DEBUGGING
+ 11 .debug_ranges 00000020  00000000  00000000  00004ab8  2**0
+                  CONTENTS, READONLY, DEBUGGING
+
+Disassembly of section .text:
+
+00000000 <__vectors>:
+   0:	0c 94 3e 00 	jmp	0x7c	; 0x7c <__ctors_end>
+   4:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+   8:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+   c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  10:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  14:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  18:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  1c:	0c 94 55 00 	jmp	0xaa	; 0xaa <__vector_7>
+  20:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  24:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  28:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  2c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  30:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  34:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  38:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  3c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  40:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  44:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  48:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  4c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  50:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  54:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  58:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  5c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  60:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  64:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  68:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  6c:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  70:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  74:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+  78:	0c 94 53 00 	jmp	0xa6	; 0xa6 <__bad_interrupt>
+
+0000007c <__ctors_end>:
+  7c:	11 24       	eor	r1, r1
+  7e:	1f be       	out	0x3f, r1	; 63
+  80:	cf ef       	ldi	r28, 0xFF	; 255
+  82:	cd bf       	out	0x3d, r28	; 61
+  84:	df e3       	ldi	r29, 0x3F	; 63
+  86:	de bf       	out	0x3e, r29	; 62
+
+00000088 <__do_copy_data>:
+  88:	18 e3       	ldi	r17, 0x38	; 56
+  8a:	a0 e0       	ldi	r26, 0x00	; 0
+  8c:	b8 e3       	ldi	r27, 0x38	; 56
+  8e:	e2 e9       	ldi	r30, 0x92	; 146
+  90:	f1 e0       	ldi	r31, 0x01	; 1
+  92:	02 c0       	rjmp	.+4      	; 0x98 <__do_copy_data+0x10>
+  94:	05 90       	lpm	r0, Z+
+  96:	0d 92       	st	X+, r0
+  98:	a2 30       	cpi	r26, 0x02	; 2
+  9a:	b1 07       	cpc	r27, r17
+  9c:	d9 f7       	brne	.-10     	; 0x94 <__do_copy_data+0xc>
+  9e:	0e 94 7b 00 	call	0xf6	; 0xf6 <main>
+  a2:	0c 94 c7 00 	jmp	0x18e	; 0x18e <_exit>
+
+000000a6 <__bad_interrupt>:
+  a6:	0c 94 00 00 	jmp	0	; 0x0 <__vectors>
+
+000000aa <__vector_7>:
+// 	// _delay_ms(5);
+// 	// VPORTA_OUT = VPORTA_OUT & 0b11110111;
+// 	return;
+// }
+
+ISR(RTC_PIT_vect) {
+  aa:	1f 92       	push	r1
+  ac:	0f 92       	push	r0
+  ae:	0f b6       	in	r0, 0x3f	; 63
+  b0:	0f 92       	push	r0
+  b2:	11 24       	eor	r1, r1
+  b4:	8f 93       	push	r24
+  b6:	9f 93       	push	r25
+	RTC_PITINTFLAGS = 0b00000001; //周期割り込み要求フラグ解除
+  b8:	81 e0       	ldi	r24, 0x01	; 1
+  ba:	80 93 53 01 	sts	0x0153, r24	; 0x800153 <__RODATA_PM_OFFSET__+0x7f8153>
+
+	//10秒に1回LEDを光らせる
+	if(++count == 10) {
+  be:	80 91 00 38 	lds	r24, 0x3800	; 0x803800 <__DATA_REGION_ORIGIN__>
+  c2:	8f 5f       	subi	r24, 0xFF	; 255
+  c4:	80 93 00 38 	sts	0x3800, r24	; 0x803800 <__DATA_REGION_ORIGIN__>
+  c8:	8a 30       	cpi	r24, 0x0A	; 10
+  ca:	71 f4       	brne	.+28     	; 0xe8 <__vector_7+0x3e>
+		count = 0;
+  cc:	10 92 00 38 	sts	0x3800, r1	; 0x803800 <__DATA_REGION_ORIGIN__>
+
+		VPORTA_OUT = VPORTA_OUT | 0b00001000;
+  d0:	81 b1       	in	r24, 0x01	; 1
+  d2:	88 60       	ori	r24, 0x08	; 8
+  d4:	81 b9       	out	0x01, r24	; 1
+	#else
+		//round up by default
+		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
+	#endif
+
+	__builtin_avr_delay_cycles(__ticks_dc);
+  d6:	8f e9       	ldi	r24, 0x9F	; 159
+  d8:	9f e0       	ldi	r25, 0x0F	; 15
+  da:	01 97       	sbiw	r24, 0x01	; 1
+  dc:	f1 f7       	brne	.-4      	; 0xda <__vector_7+0x30>
+  de:	00 c0       	rjmp	.+0      	; 0xe0 <__vector_7+0x36>
+  e0:	00 00       	nop
+		_delay_ms(1);
+		VPORTA_OUT = VPORTA_OUT & 0b11110111;
+  e2:	81 b1       	in	r24, 0x01	; 1
+  e4:	87 7f       	andi	r24, 0xF7	; 247
+  e6:	81 b9       	out	0x01, r24	; 1
+	}
+	
+	return;
+}
+  e8:	9f 91       	pop	r25
+  ea:	8f 91       	pop	r24
+  ec:	0f 90       	pop	r0
+  ee:	0f be       	out	0x3f, r0	; 63
+  f0:	0f 90       	pop	r0
+  f2:	1f 90       	pop	r1
+  f4:	18 95       	reti
+
+000000f6 <main>:
+int main(void) {
+
+	//■□■――――――――――――――――――――――――――――――――――――■□■
+	//		□ レジスタの設定
+	//■□■――――――――――――――――――――――――――――――――――――■□■
+	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
+  f6:	98 ed       	ldi	r25, 0xD8	; 216
+  f8:	94 bf       	out	0x34, r25	; 52
+	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
+  fa:	10 92 60 00 	sts	0x0060, r1	; 0x800060 <__RODATA_PM_OFFSET__+0x7f8060>
+	//CLKCTRL_MCLKCTRLA = 0b00000001; //32 KHz内部超低消費電力オシレータ
+	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
+  fe:	94 bf       	out	0x34, r25	; 52
+	CLKCTRL_MCLKCTRLB = 0b00000000; //分周なし
+ 100:	10 92 61 00 	sts	0x0061, r1	; 0x800061 <__RODATA_PM_OFFSET__+0x7f8061>
+
+	//入出力モード設定
+	VPORTA_DIR = 0b00001110; //ポートA 
+ 104:	8e e0       	ldi	r24, 0x0E	; 14
+ 106:	80 b9       	out	0x00, r24	; 0
+	VPORTB_DIR = 0b00000011; //ポートB 
+ 108:	83 e0       	ldi	r24, 0x03	; 3
+ 10a:	84 b9       	out	0x04, r24	; 4
+	VPORTC_DIR = 0b00001111; //ポートC
+ 10c:	8f e0       	ldi	r24, 0x0F	; 15
+ 10e:	88 b9       	out	0x08, r24	; 8
+
+	//出力の初期化
+	VPORTA_OUT = 0b00000000; //ポートA
+ 110:	11 b8       	out	0x01, r1	; 1
+	VPORTB_OUT = 0b00000000; //ポートB
+ 112:	15 b8       	out	0x05, r1	; 5
+	VPORTC_OUT = 0b00000000; //ポートC
+ 114:	19 b8       	out	0x09, r1	; 9
+
+	//プルアップの有効化 各ピン毎に PINnCTRLで設定 ビット3に1を書くことでプルアップ有効 詳細はデータシートで
+	PORTA_PIN4CTRL = 0b00001000;
+ 116:	88 e0       	ldi	r24, 0x08	; 8
+ 118:	80 93 14 04 	sts	0x0414, r24	; 0x800414 <__RODATA_PM_OFFSET__+0x7f8414>
+	PORTA_PIN5CTRL = 0b00001000;
+ 11c:	80 93 15 04 	sts	0x0415, r24	; 0x800415 <__RODATA_PM_OFFSET__+0x7f8415>
+	PORTA_PIN6CTRL = 0b00001000;
+ 120:	80 93 16 04 	sts	0x0416, r24	; 0x800416 <__RODATA_PM_OFFSET__+0x7f8416>
+	PORTA_PIN7CTRL = 0b00001000;
+ 124:	80 93 17 04 	sts	0x0417, r24	; 0x800417 <__RODATA_PM_OFFSET__+0x7f8417>
+	
+	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
+ 128:	94 bf       	out	0x34, r25	; 52
+	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル
+ 12a:	81 e0       	ldi	r24, 0x01	; 1
+ 12c:	80 93 7c 00 	sts	0x007C, r24	; 0x80007c <__RODATA_PM_OFFSET__+0x7f807c>
+	
+	//RTC設定
+	RTC_INTCTRL = 0b00000000; //比較一致割り込み禁止
+ 130:	10 92 42 01 	sts	0x0142, r1	; 0x800142 <__RODATA_PM_OFFSET__+0x7f8142>
+	RTC_CLKSEL  = 0b00000010; //クロック選択 XOSC32Kからの32.768 kHz
+ 134:	82 e0       	ldi	r24, 0x02	; 2
+ 136:	80 93 47 01 	sts	0x0147, r24	; 0x800147 <__RODATA_PM_OFFSET__+0x7f8147>
+	//STATUS.CTRLABUSYフラグが1の間待機
+	while((RTC_STATUS & 0b00000001));
+ 13a:	80 91 41 01 	lds	r24, 0x0141	; 0x800141 <__RODATA_PM_OFFSET__+0x7f8141>
+ 13e:	80 fd       	sbrc	r24, 0
+ 140:	fc cf       	rjmp	.-8      	; 0x13a <__EEPROM_REGION_LENGTH__+0x3a>
+	RTC_CTRLA   = 0b11110001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周 RTC許可
+ 142:	81 ef       	ldi	r24, 0xF1	; 241
+ 144:	80 93 40 01 	sts	0x0140, r24	; 0x800140 <__RODATA_PM_OFFSET__+0x7f8140>
+	
+	//RTC PIT 周期割り込み設定
+	RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
+ 148:	81 e7       	ldi	r24, 0x71	; 113
+ 14a:	80 93 50 01 	sts	0x0150, r24	; 0x800150 <__RODATA_PM_OFFSET__+0x7f8150>
+	RTC_PITINTCTRL = 0b00000001; //周期割り込み許可
+ 14e:	81 e0       	ldi	r24, 0x01	; 1
+ 150:	80 93 52 01 	sts	0x0152, r24	; 0x800152 <__RODATA_PM_OFFSET__+0x7f8152>
+
+	RTC_CMP = 1;
+ 154:	81 e0       	ldi	r24, 0x01	; 1
+ 156:	90 e0       	ldi	r25, 0x00	; 0
+ 158:	80 93 4c 01 	sts	0x014C, r24	; 0x80014c <__RODATA_PM_OFFSET__+0x7f814c>
+ 15c:	90 93 4d 01 	sts	0x014D, r25	; 0x80014d <__RODATA_PM_OFFSET__+0x7f814d>
+ 160:	8f e1       	ldi	r24, 0x1F	; 31
+ 162:	9e e4       	ldi	r25, 0x4E	; 78
+ 164:	01 97       	sbiw	r24, 0x01	; 1
+ 166:	f1 f7       	brne	.-4      	; 0x164 <__EEPROM_REGION_LENGTH__+0x64>
+ 168:	00 c0       	rjmp	.+0      	; 0x16a <__EEPROM_REGION_LENGTH__+0x6a>
+ 16a:	00 00       	nop
+
+
+	//少し待機
+	_delay_ms(5);
+
+	sei(); //割り込み許可
+ 16c:	78 94       	sei
+	
+	set_sleep_mode(SLEEP_MODE_PWR_DOWN); //スリープモードを設定
+ 16e:	e0 e5       	ldi	r30, 0x50	; 80
+ 170:	f0 e0       	ldi	r31, 0x00	; 0
+ 172:	80 81       	ld	r24, Z
+ 174:	89 7f       	andi	r24, 0xF9	; 249
+ 176:	84 60       	ori	r24, 0x04	; 4
+ 178:	80 83       	st	Z, r24
+
+	while (1) {
+
+		sleep_mode();
+ 17a:	e0 e5       	ldi	r30, 0x50	; 80
+ 17c:	f0 e0       	ldi	r31, 0x00	; 0
+ 17e:	80 81       	ld	r24, Z
+ 180:	81 60       	ori	r24, 0x01	; 1
+ 182:	80 83       	st	Z, r24
+ 184:	88 95       	sleep
+ 186:	80 81       	ld	r24, Z
+ 188:	8e 7f       	andi	r24, 0xFE	; 254
+ 18a:	80 83       	st	Z, r24
+ 18c:	f6 cf       	rjmp	.-20     	; 0x17a <__EEPROM_REGION_LENGTH__+0x7a>
+
+0000018e <_exit>:
+ 18e:	f8 94       	cli
+
+00000190 <__stop_program>:
+ 190:	ff cf       	rjmp	.-2      	; 0x190 <__stop_program>
