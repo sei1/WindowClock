@@ -1,7 +1,7 @@
 ﻿/*
  * ATtiny1616
- * F_CPU=3333333
- * 3.3MHz内部クロック
+ * F_CPU=250000UL
+ * 250kHz内部クロック(16MHz 64分周)
  *
  * Created: 2025/05/18
  * Author : SEIICHIRO SASAKI
@@ -9,8 +9,8 @@
 ――――――――――――――――――――――――――――――――――――
 □ Fuses設定
 ――――――――――――――――――――――――――――――――――――
-ACTIVE = ENABLED
-LVL = BODLEVEL7
+ACTIVE = DIS
+LVL = BODLEVEL0
 SAMPFREQ = 1KHZ
 SLEEP = DIS
 FREQSEL = 20MHZ
@@ -31,7 +31,7 @@ PERIOD = OFF
 WINDOW = OFF
 
 APPEND = 0x00 (valid)
-BODCFG = 0xE4 (valid)
+BODCFG = 0x00 (valid)
 BOOTEND = 0x00 (valid)
 OSCCFG = 0x02 (valid)
 SYSCFG0 = 0xF6 (valid)
@@ -39,42 +39,43 @@ SYSCFG1 = 0x07 (valid)
 TCD0CFG = 0x00 (valid)
 WDTCFG = 0x00 (valid)
 
+
 ――――――――――――――――――――――――――――――――――――
 □ I/Oピン設定
 ――――――――――――――――――――――――――――――――――――
 
 PA0 … RESET/UPDI
-PA1 … LCD RS
-PA2 … LCD E
-PA3 … UV LED OUT
-PA4 … Y/0 タッチセンサー UP
-PA5 … Y/1 タッチセンサー DOWN
-PA6 … Y/2 タッチセンサー SET
-PA7 … Y/3 タッチセンサー RIGHT
+PA1 … 7seg A A/D1
+PA2 … 7seg A B/D2
+PA3 … 7seg A C/D3
+PA4 … 7seg A D
+PA5 … 7seg A E
+PA6 … 7seg A F
+PA7 … 7seg A G
 
-PB0 … ステッピングモーター Dir(High or Lowで回転方向の指定)
-PB1 … ステッピングモーター Step(1パルス送信すると1分解能分回転させられる)
-PB2 … ステッピングモーター x-Enable(Lowで有効化、命令を受け付け保持トルクも発生する。Highでモーターを無力化)
-PB3 … ステッピングモーター y-Enable(Lowで有効化、命令を受け付け保持トルクも発生する。Highでモーターを無力化)
-PB4 … マイクロスイッチ x-Limit
-PB5 … マイクロスイッチ y-Limit
+PB0 … IR Sensor In
+PB1 … Switch In
+PB2 … Clock TOSC2
+PB3 … Clock TOSC1
+PB4 … 7seg C4
+PB5 … 7seg C5
 
-PC0 … LCDデータ送信用
-PC1 … LCDデータ送信用
-PC2 … LCDデータ送信用
-PC3 … LCDデータ送信用
+PC0 … 7seg A DP
+PC1 … 7seg C1
+PC2 … 7seg C2
+PC3 … 7seg C3
 
                             ┏━━━       ━━━┓
                        VDD ━┃ 1°       20 ┃━ GND
-      Touch Sensor Y/0 PA4 ━┃ 2        19 ┃━ PA3 UV LED OUT
-      Touch Sensor Y/1 PA5 ━┃ 3        18 ┃━ PA2 LCD E
-      Touch Sensor Y/2 PA6 ━┃ 4        17 ┃━ PA1 LCD RS
-      Touch Sensor Y/3 PA7 ━┃ 5        16 ┃━ PA0 RESET/UPDI
-               y-Limit PB5 ━┃ 6        15 ┃━ PC3 LCD data
-               x-Limit PB4 ━┃ 7        14 ┃━ PC2 LCD data
-           Clock TOSC1 PB3 ━┃ 8        13 ┃━ PC1 LCD data
-           Clock TOSC2 PB2 ━┃ 9        12 ┃━ PC0 LCD data
-                  Step PB1 ━┃ 10       11 ┃━ PB0 Enable
+              7seg A D PA4 ━┃ 2        19 ┃━ PA3 7seg A C/D3
+              7seg A E PA5 ━┃ 3        18 ┃━ PA2 7seg A B/D2
+              7seg A F PA6 ━┃ 4        17 ┃━ PA1 7seg A A/D1
+              7seg A G PA7 ━┃ 5        16 ┃━ PA0 RESET/UPDI
+               7seg C5 PB5 ━┃ 6        15 ┃━ PC3 7seg C3
+               7seg C4 PB4 ━┃ 7        14 ┃━ PC2 7seg C2
+           Clock TOSC1 PB3 ━┃ 8        13 ┃━ PC1 7seg C1
+           Clock TOSC2 PB2 ━┃ 9        12 ┃━ PC0 7seg A DP
+             Switch In PB1 ━┃ 10       11 ┃━ PB0 IR Sensor In
                             ┗━━━━━━━━━━━━━┛
 
 */
@@ -83,7 +84,7 @@ PC3 … LCDデータ送信用
 // 定義とインクルード
 //---------------------------------
 
-#define F_CPU 16000000UL
+#define F_CPU 250000UL
 //#define F_CPU 32000UL
 
 
@@ -99,35 +100,127 @@ PC3 … LCDデータ送信用
 // グローバル変数の宣言
 //---------------------------------
 
-uint8_t count = 9;
+//7セグLEDの0～9を点灯させるビットの配列
+uint8_t seg[10] = {
+	0b01111110, 0b00001100, 0b10110110, 0b10011110, 0b11001100,
+	0b11011010, 0b11111010, 0b01001110, 0b11111110, 0b11011110
+};
+
+//7セグLEDに表示させる4桁の数字
+volatile uint16_t count = 1234;
+
+uint8_t wakeup = 0;
 
 
-//回転させる関数
-void rotate_p (void) {
 
-	//モーターを有効化
-	VPORTB_OUT = VPORTB_OUT & 0b11111110;
+//ボタン操作を受け付けながら待機する関数
+void sens_delay_ms(uint16_t num) {
 
-	//3200stepで1回転のため2560で4/5回転。4/5回転で1mm移動
-	for (uint16_t i = 0; i < 3200; i++) {
-		_delay_us(600);
-		VPORTB_OUT = VPORTB_OUT | 0b00000010;
-		_delay_us(10);
-		VPORTB_OUT = VPORTB_OUT & 0b11111101;
+	for (unsigned int i = 0; i < num; i++){
+		if(!(VPORTB_IN & PIN1_bm)) {
+			//ここにタクトスイッチが押された時の動作を記述
+			VPORTA_OUT = VPORTA_OUT & 0b11110111;
+			_delay_ms(300);
+			VPORTA_OUT = VPORTA_OUT | 0b00001000;
+		}
+		_delay_ms(1);
 	}
-
-	//モーターを無力化
-	VPORTB_OUT = VPORTB_OUT | 0b00000001;
 }
 
+
+//TCA割り込み
+ISR (TCA0_CMP1_vect) {
+
+	TCA0_SINGLE_CNT = 0;//カウントリセット
+	TCA0_SINGLE_INTFLAGS = 0b00100000; //割り込み要求フラグを解除
+	
+
+	sei(); //割り込み許可
+
+	static uint8_t sel = 0;
+	uint8_t dig1, dig2, dig3, dig4, dig5;
+
+	dig1   = seg[count % 10];
+	dig2   = seg[(count / 10) % 10];
+	dig3   = 0b000000110;
+	dig4   = seg[(count / 100) % 10];
+	dig5   = seg[(count / 1000) % 10];
+
+	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
+	VPORTA_OUT = VPORTA_OUT & 0b00000001;
+	VPORTC_OUT = VPORTC_OUT & 0b11111110;
+	//ダイナミック点灯用トランジスタも全てOFF
+	VPORTB_OUT = VPORTB_OUT & 0b11001111;
+	VPORTC_OUT = VPORTC_OUT & 0b11110001;
+
+	switch ( sel ) {
+
+		case 0:
+		VPORTB_OUT = VPORTB_OUT | 0b00010000;
+		//VPORTA_OUT = (dig1  & 0b01111111) | (PORTD & 0b10000000);//PD7に影響を与えないようマスク処理をしてPD0～6に値を代入
+		VPORTA_OUT = dig1;
+		break;
+
+		case 1:
+		VPORTC_OUT = VPORTC_OUT | 0b00001000;
+		VPORTA_OUT = dig2;
+		break;
+
+		case 2:
+		VPORTB_OUT = VPORTB_OUT | 0b00100000;
+		VPORTA_OUT = dig3;
+		break;
+
+		case 3:
+		VPORTC_OUT = VPORTC_OUT | 0b00000100;
+		VPORTA_OUT = dig4;
+		break;
+
+		case 4:
+		VPORTC_OUT = VPORTC_OUT | 0b00000010;
+		VPORTA_OUT = dig5;
+		break;
+
+	}
+
+	//selの0~5トグル
+	if ( ++sel == 5 ) {
+		sel = 0;
+		if(wakeup) wakeup--;
+	}
+
+}
+
+//外部割り込み PB0が変化したら 両方のエッジを検出する(片方エッジにしたいがそうするとなぜかスタンバイから復帰しない)
+ISR(PORTB_PORT_vect) {
+	PORTB_INTFLAGS = PORTB_INTFLAGS | 0b00000010; //割り込み要求フラグ解除
+
+	sei(); //割り込み許可
+
+	//PB0がLowだったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
+	if(!(VPORTB_IN & PIN0_bm)) {
+		return;
+	}
+
+	wakeup = 255;
+
+	//VPORTA_OUT = VPORTA_OUT | 0b00001000;
+	//sens_delay_ms(5000);
+	//VPORTA_OUT = VPORTA_OUT & 0b11110111;
+	return;
+}
+
+//リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
 	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
 	
 	
-	VPORTA_OUT = VPORTA_OUT | 0b00001000;
-	_delay_ms(1);
-	VPORTA_OUT = VPORTA_OUT & 0b11110111;
+	// VPORTC_OUT = VPORTC_OUT | 0b00000010;
+	// VPORTA_OUT = VPORTA_OUT | 0b00001000;
+	// sens_delay_ms(1);
+	// VPORTA_OUT = VPORTA_OUT & 0b11110111;
+	// VPORTC_OUT = VPORTC_OUT & 0b11111101;
 	return;
 }
 
@@ -156,11 +249,11 @@ int main(void) {
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
 	//CLKCTRL_MCLKCTRLA = 0b00000001; //32 KHz内部超低消費電力オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
-	CLKCTRL_MCLKCTRLB = 0b00000000; //分周なし
+	CLKCTRL_MCLKCTRLB = 0b00001011; //64分周
 
 	//入出力モード設定
 	VPORTA_DIR = 0b11111111; //ポートA 
-	VPORTB_DIR = 0b11111111; //ポートB 
+	VPORTB_DIR = 0b11111100; //ポートB 
 	VPORTC_DIR = 0b11111111; //ポートC
 
 	//出力の初期化
@@ -169,10 +262,38 @@ int main(void) {
 	VPORTC_OUT = 0b00000000; //ポートC
 
 	//プルアップの有効化 各ピン毎に PINnCTRLで設定 ビット3に1を書くことでプルアップ有効 詳細はデータシートで
+	// PORTA_PIN0CTRL = 0b00001000;
+	// PORTA_PIN1CTRL = 0b00001000;
+	// PORTA_PIN2CTRL = 0b00001000;
+	// PORTA_PIN3CTRL = 0b00001000;
 	// PORTA_PIN4CTRL = 0b00001000;
 	// PORTA_PIN5CTRL = 0b00001000;
 	// PORTA_PIN6CTRL = 0b00001000;
 	// PORTA_PIN7CTRL = 0b00001000;
+
+	// PORTB_PIN0CTRL = 0b00001000;
+	// PORTB_PIN1CTRL = 0b00001000;
+	// PORTB_PIN2CTRL = 0b00001000;
+	// PORTB_PIN3CTRL = 0b00001000;
+	// PORTB_PIN4CTRL = 0b00001000;
+	// PORTB_PIN5CTRL = 0b00001000;
+	// PORTB_PIN6CTRL = 0b00001000;
+	// PORTB_PIN7CTRL = 0b00001000;
+
+	// PORTC_PIN0CTRL = 0b00001000;
+	// PORTC_PIN1CTRL = 0b00001000;
+	// PORTC_PIN2CTRL = 0b00001000;
+	// PORTC_PIN3CTRL = 0b00001000;
+	// PORTC_PIN4CTRL = 0b00001000;
+	// PORTC_PIN5CTRL = 0b00001000;
+	// PORTC_PIN6CTRL = 0b00001000;
+	// PORTC_PIN7CTRL = 0b00001000;
+
+	//焦電型赤外線センサー入力
+	PORTB_PIN0CTRL = 0b00000001; //プルアップ無効 両方のエッジを検出する
+
+	//タクトスイッチ入力
+	PORTB_PIN1CTRL = 0b00001000; //プルアップ有効
 
 
 	
@@ -193,7 +314,12 @@ int main(void) {
 	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
 	// RTC_PITINTCTRL = 0b00000001; //周期割り込み許可
 
-	
+	//タイマーA
+	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
+	TCA0_SINGLE_CTRLB = 0b00000000; //
+	TCA0_SINGLE_PER  = 65535; // カウント上限値(最大65535) 
+	TCA0_SINGLE_CMP1 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
+	TCA0_SINGLE_INTCTRL = 0b00100000; //TRIGA割り込み許可
 
 
 	//少し待機
@@ -206,7 +332,20 @@ int main(void) {
 
 	while (1) {
 
-		sleep_mode();
+
+		_delay_ms(5);
+		sei(); //割り込み許可
+
+		if(!wakeup) {
+			//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
+			VPORTA_OUT = VPORTA_OUT & 0b00000001;
+			VPORTC_OUT = VPORTC_OUT & 0b11111110;
+			//ダイナミック点灯用トランジスタも全てOFF
+			VPORTB_OUT = VPORTB_OUT & 0b11001111;
+			VPORTC_OUT = VPORTC_OUT & 0b11110001;
+			sleep_mode();
+		}
+		
 
 	}
 }
