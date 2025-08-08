@@ -127,15 +127,30 @@ void sens_delay_ms(uint16_t num) {
 	}
 }
 
+//7セグをすべて消灯する関数
+void seg_all_off(void) {
+
+	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
+	VPORTA_OUT = VPORTA_OUT & 0b00000001;
+	VPORTC_OUT = VPORTC_OUT & 0b11111110;
+	//ダイナミック点灯用トランジスタも全てOFF
+	VPORTB_OUT = VPORTB_OUT & 0b11001111;
+	VPORTC_OUT = VPORTC_OUT & 0b11110001;
+}
+
 
 //TCA割り込み
 ISR (TCA0_CMP1_vect) {
 
+	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
+	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
+	if(!wakeup) {
+		seg_all_off();
+		return;
+	}
+
 	TCA0_SINGLE_CNT = 0;//カウントリセット
 	TCA0_SINGLE_INTFLAGS = 0b00100000; //割り込み要求フラグを解除
-	
-
-	sei(); //割り込み許可
 
 	static uint8_t sel = 0;
 	uint8_t dig1, dig2, dig3, dig4, dig5;
@@ -147,11 +162,7 @@ ISR (TCA0_CMP1_vect) {
 	dig5   = seg[(count / 1000) % 10];
 
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
-	VPORTA_OUT = VPORTA_OUT & 0b00000001;
-	VPORTC_OUT = VPORTC_OUT & 0b11111110;
-	//ダイナミック点灯用トランジスタも全てOFF
-	VPORTB_OUT = VPORTB_OUT & 0b11001111;
-	VPORTC_OUT = VPORTC_OUT & 0b11110001;
+	seg_all_off();
 
 	switch ( sel ) {
 
@@ -195,8 +206,6 @@ ISR (TCA0_CMP1_vect) {
 ISR(PORTB_PORT_vect) {
 	PORTB_INTFLAGS = PORTB_INTFLAGS | 0b00000010; //割り込み要求フラグ解除
 
-	sei(); //割り込み許可
-
 	//PB0がLowだったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
 		return;
@@ -214,6 +223,8 @@ ISR(PORTB_PORT_vect) {
 ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
 	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
+
+	count++;
 	
 	
 	// VPORTC_OUT = VPORTC_OUT | 0b00000010;
@@ -261,34 +272,6 @@ int main(void) {
 	VPORTB_OUT = 0b00000000; //ポートB
 	VPORTC_OUT = 0b00000000; //ポートC
 
-	//プルアップの有効化 各ピン毎に PINnCTRLで設定 ビット3に1を書くことでプルアップ有効 詳細はデータシートで
-	// PORTA_PIN0CTRL = 0b00001000;
-	// PORTA_PIN1CTRL = 0b00001000;
-	// PORTA_PIN2CTRL = 0b00001000;
-	// PORTA_PIN3CTRL = 0b00001000;
-	// PORTA_PIN4CTRL = 0b00001000;
-	// PORTA_PIN5CTRL = 0b00001000;
-	// PORTA_PIN6CTRL = 0b00001000;
-	// PORTA_PIN7CTRL = 0b00001000;
-
-	// PORTB_PIN0CTRL = 0b00001000;
-	// PORTB_PIN1CTRL = 0b00001000;
-	// PORTB_PIN2CTRL = 0b00001000;
-	// PORTB_PIN3CTRL = 0b00001000;
-	// PORTB_PIN4CTRL = 0b00001000;
-	// PORTB_PIN5CTRL = 0b00001000;
-	// PORTB_PIN6CTRL = 0b00001000;
-	// PORTB_PIN7CTRL = 0b00001000;
-
-	// PORTC_PIN0CTRL = 0b00001000;
-	// PORTC_PIN1CTRL = 0b00001000;
-	// PORTC_PIN2CTRL = 0b00001000;
-	// PORTC_PIN3CTRL = 0b00001000;
-	// PORTC_PIN4CTRL = 0b00001000;
-	// PORTC_PIN5CTRL = 0b00001000;
-	// PORTC_PIN6CTRL = 0b00001000;
-	// PORTC_PIN7CTRL = 0b00001000;
-
 	//焦電型赤外線センサー入力
 	PORTB_PIN0CTRL = 0b00000001; //プルアップ無効 両方のエッジを検出する
 
@@ -308,7 +291,7 @@ int main(void) {
 	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周 RTC許可
 
 	//割り込みたい間隔の秒数-1
-	RTC_CMP = 59;
+	RTC_CMP = 0;
 	
 	// //RTC PIT 周期割り込み設定
 	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
@@ -317,34 +300,24 @@ int main(void) {
 	//タイマーA
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
 	TCA0_SINGLE_CTRLB = 0b00000000; //
-	TCA0_SINGLE_PER  = 65535; // カウント上限値(最大65535) 
 	TCA0_SINGLE_CMP1 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
 	TCA0_SINGLE_INTCTRL = 0b00100000; //TRIGA割り込み許可
 
+	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
 	//少し待機
 	_delay_ms(5);
 
 	sei(); //割り込み許可
 	
-	//set_sleep_mode(SLEEP_MODE_PWR_DOWN); //スリープモードを設定
-	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
-
 	while (1) {
 
-
-		_delay_ms(5);
-		sei(); //割り込み許可
-
 		if(!wakeup) {
-			//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
-			VPORTA_OUT = VPORTA_OUT & 0b00000001;
-			VPORTC_OUT = VPORTC_OUT & 0b11111110;
-			//ダイナミック点灯用トランジスタも全てOFF
-			VPORTB_OUT = VPORTB_OUT & 0b11001111;
-			VPORTC_OUT = VPORTC_OUT & 0b11110001;
+			seg_all_off();
 			sleep_mode();
 		}
+
+		_delay_ms(1);
 		
 
 	}
