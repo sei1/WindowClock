@@ -107,9 +107,10 @@ uint8_t seg[10] = {
 };
 
 //7セグLEDに表示させる4桁の数字
-volatile uint16_t count = 1234;
+volatile uint8_t min  = 0;
+volatile uint8_t hour = 0;
 
-uint8_t wakeup = 0;
+uint16_t wakeup = 0;
 
 
 
@@ -155,11 +156,17 @@ ISR (TCA0_CMP1_vect) {
 	static uint8_t sel = 0;
 	uint8_t dig1, dig2, dig3, dig4, dig5;
 
-	dig1   = seg[count % 10];
-	dig2   = seg[(count / 10) % 10];
-	dig3   = 0b000000110;
-	dig4   = seg[(count / 100) % 10];
-	dig5   = seg[(count / 1000) % 10];
+	dig1   = seg[min % 10];
+	dig2   = seg[(min / 10) % 10];
+	dig3   = 0b00000110;
+	dig4   = seg[hour % 10];
+
+	uint8_t zerocheck = (hour / 10) % 10;
+	if(zerocheck == 0) {
+		dig5 = 0b00000000;
+	}else{
+		dig5   = seg[zerocheck];
+	}
 
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
@@ -211,7 +218,7 @@ ISR(PORTB_PORT_vect) {
 		return;
 	}
 
-	wakeup = 255;
+	wakeup = 800;
 
 	//VPORTA_OUT = VPORTA_OUT | 0b00001000;
 	//sens_delay_ms(5000);
@@ -224,14 +231,11 @@ ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
 	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
 
-	count++;
+	if (++min >= 60) {
+		min = 0;
+		if(++hour >= 24) hour = 0;
+	}
 	
-	
-	// VPORTC_OUT = VPORTC_OUT | 0b00000010;
-	// VPORTA_OUT = VPORTA_OUT | 0b00001000;
-	// sens_delay_ms(1);
-	// VPORTA_OUT = VPORTA_OUT & 0b11110111;
-	// VPORTC_OUT = VPORTC_OUT & 0b11111101;
 	return;
 }
 
