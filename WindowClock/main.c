@@ -110,6 +110,7 @@ uint8_t seg[10] = {
 volatile uint8_t min  = 0;
 volatile uint8_t hour = 0;
 
+//起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
 uint16_t wakeup = 0;
 
 
@@ -141,7 +142,7 @@ void seg_all_off(void) {
 
 
 //TCA割り込み
-ISR (TCA0_CMP1_vect) {
+ISR (TCA0_CMP0_vect) {
 
 	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
@@ -151,7 +152,7 @@ ISR (TCA0_CMP1_vect) {
 	}
 
 	TCA0_SINGLE_CNT = 0;//カウントリセット
-	TCA0_SINGLE_INTFLAGS = 0b00100000; //割り込み要求フラグを解除
+	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
 
 	static uint8_t sel = 0;
 	uint8_t dig1, dig2, dig3, dig4, dig5;
@@ -161,6 +162,7 @@ ISR (TCA0_CMP1_vect) {
 	dig3   = 0b00000110;
 	dig4   = seg[hour % 10];
 
+	//dig5のみ0なら不点灯にする(ゼロサプレス)
 	uint8_t zerocheck = (hour / 10) % 10;
 	if(zerocheck == 0) {
 		dig5 = 0b00000000;
@@ -304,8 +306,8 @@ int main(void) {
 	//タイマーA
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
 	TCA0_SINGLE_CTRLB = 0b00000000; //
-	TCA0_SINGLE_CMP1 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
-	TCA0_SINGLE_INTCTRL = 0b00100000; //TRIGA割り込み許可
+	TCA0_SINGLE_CMP0 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
+	TCA0_SINGLE_INTCTRL = 0b00010000; //TRIGA割り込み許可
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 

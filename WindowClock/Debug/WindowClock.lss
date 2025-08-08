@@ -19,7 +19,7 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
   7 .debug_abbrev 00001a69  00000000  00000000  0000225c  2**0
                   CONTENTS, READONLY, DEBUGGING
-  8 .debug_line   000004e3  00000000  00000000  00003cc5  2**0
+  8 .debug_line   000004e2  00000000  00000000  00003cc5  2**0
                   CONTENTS, READONLY, DEBUGGING
   9 .debug_frame  0000010c  00000000  00000000  000041a8  2**2
                   CONTENTS, READONLY, DEBUGGING
@@ -43,8 +43,8 @@ Disassembly of section .text:
   1c:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
   20:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
   24:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
-  28:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
-  2c:	0c 94 6a 00 	jmp	0xd4	; 0xd4 <__vector_11>
+  28:	0c 94 6a 00 	jmp	0xd4	; 0xd4 <__vector_10>
+  2c:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
   30:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
   34:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
   38:	0c 94 5b 00 	jmp	0xb6	; 0xb6 <__bad_interrupt>
@@ -130,12 +130,12 @@ void seg_all_off(void) {
   d0:	89 b9       	out	0x09, r24	; 9
   d2:	08 95       	ret
 
-000000d4 <__vector_11>:
+000000d4 <__vector_10>:
 }
 
 
 //TCA割り込み
-ISR (TCA0_CMP1_vect) {
+ISR (TCA0_CMP0_vect) {
   d4:	1f 92       	push	r1
   d6:	0f 92       	push	r0
   d8:	0f b6       	in	r0, 0x3f	; 63
@@ -174,8 +174,8 @@ ISR (TCA0_CMP1_vect) {
 	TCA0_SINGLE_CNT = 0;//カウントリセット
  110:	10 92 20 0a 	sts	0x0A20, r1	; 0x800a20 <__RODATA_PM_OFFSET__+0x7f8a20>
  114:	10 92 21 0a 	sts	0x0A21, r1	; 0x800a21 <__RODATA_PM_OFFSET__+0x7f8a21>
-	TCA0_SINGLE_INTFLAGS = 0b00100000; //割り込み要求フラグを解除
- 118:	80 e2       	ldi	r24, 0x20	; 32
+	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
+ 118:	80 e1       	ldi	r24, 0x10	; 16
  11a:	80 93 0b 0a 	sts	0x0A0B, r24	; 0x800a0b <__RODATA_PM_OFFSET__+0x7f8a0b>
 
 	static uint8_t sel = 0;
@@ -244,6 +244,7 @@ ISR (TCA0_CMP1_vect) {
  194:	b8 4c       	sbci	r27, 0xC8	; 200
  196:	0c 91       	ld	r16, X
 
+	//dig5のみ0なら不点灯にする(ゼロサプレス)
 	uint8_t zerocheck = (hour / 10) % 10;
  198:	80 91 0d 38 	lds	r24, 0x380D	; 0x80380d <hour>
  19c:	8e 9f       	mul	r24, r30
@@ -275,9 +276,9 @@ ISR (TCA0_CMP1_vect) {
  1c8:	f8 4c       	sbci	r31, 0xC8	; 200
  1ca:	10 81       	ld	r17, Z
  1cc:	01 c0       	rjmp	.+2      	; 0x1d0 <__EEPROM_REGION_LENGTH__+0xd0>
-	dig3   = 0b00000110;
 	dig4   = seg[hour % 10];
 
+	//dig5のみ0なら不点灯にする(ゼロサプレス)
 	uint8_t zerocheck = (hour / 10) % 10;
 	if(zerocheck == 0) {
 		dig5 = 0b00000000;
@@ -581,13 +582,13 @@ int main(void) {
  35e:	80 93 00 0a 	sts	0x0A00, r24	; 0x800a00 <__RODATA_PM_OFFSET__+0x7f8a00>
 	TCA0_SINGLE_CTRLB = 0b00000000; //
  362:	10 92 01 0a 	sts	0x0A01, r1	; 0x800a01 <__RODATA_PM_OFFSET__+0x7f8a01>
-	TCA0_SINGLE_CMP1 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
+	TCA0_SINGLE_CMP0 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
  366:	81 e0       	ldi	r24, 0x01	; 1
  368:	90 e0       	ldi	r25, 0x00	; 0
- 36a:	80 93 2a 0a 	sts	0x0A2A, r24	; 0x800a2a <__RODATA_PM_OFFSET__+0x7f8a2a>
- 36e:	90 93 2b 0a 	sts	0x0A2B, r25	; 0x800a2b <__RODATA_PM_OFFSET__+0x7f8a2b>
-	TCA0_SINGLE_INTCTRL = 0b00100000; //TRIGA割り込み許可
- 372:	80 e2       	ldi	r24, 0x20	; 32
+ 36a:	80 93 28 0a 	sts	0x0A28, r24	; 0x800a28 <__RODATA_PM_OFFSET__+0x7f8a28>
+ 36e:	90 93 29 0a 	sts	0x0A29, r25	; 0x800a29 <__RODATA_PM_OFFSET__+0x7f8a29>
+	TCA0_SINGLE_INTCTRL = 0b00010000; //TRIGA割り込み許可
+ 372:	80 e1       	ldi	r24, 0x10	; 16
  374:	80 93 0a 0a 	sts	0x0A0A, r24	; 0x800a0a <__RODATA_PM_OFFSET__+0x7f8a0a>
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
