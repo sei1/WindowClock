@@ -94,6 +94,10 @@ PC3 … 7seg C3
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
+//7セグ表示モード
+#define MODE_CLOCK 1
+#define MODE_HOUR_SET 2
+#define MODE_MIN_SET 3
 
 
 //---------------------------------
@@ -107,12 +111,17 @@ uint8_t seg[10] = {
 };
 
 //7セグLEDに表示させる4桁の数字
-volatile uint8_t min  = 0;
-volatile uint8_t hour = 0;
+uint8_t min  = 0;
+uint8_t hour = 0;
 
 //起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
 uint16_t wakeup = 0;
 
+//表示モード
+uint8_t mode = MODE_CLOCK;
+
+//ボタン 長押しチェック用変数
+volatile uint16_t long_push = 0;
 
 
 //ボタン操作を受け付けながら待機する関数
@@ -140,6 +149,17 @@ void seg_all_off(void) {
 	VPORTC_OUT = VPORTC_OUT & 0b11110001;
 }
 
+//モードを切り替える関数
+//引数に0を指定した場合は次の定数のモードへ 定数を指定した場合はそのモードへ
+void change_mode (uint8_t cmode) {
+	if(cmode) {
+		mode = cmode;
+	}else if(mode == MODE_MIN_SET) {
+		mode = MODE_CLOCK;
+	}else{
+		mode++;
+	}
+}
 
 //TCA割り込み
 ISR (TCA0_CMP0_vect) {
@@ -203,28 +223,70 @@ ISR (TCA0_CMP0_vect) {
 
 	}
 
-	//selの0~5トグル
+	//5回に1回やること
 	if ( ++sel == 5 ) {
+		//selの0~5トグル動作
 		sel = 0;
+
+		//スリープへ向けwakeupを減らす
 		if(wakeup) wakeup--;
+
+		//タクトスイッチが長押しされている場合、長押しカウントを加算
+		if(VPORTB_IN & PIN1_bm) {
+			long_push = 0;
+		}else{
+			if(++long_push > 400) {
+				long_push = 0;
+				change_mode(0);
+			}
+		}
 	}
+
+
 
 }
 
 //外部割り込み PB0が変化したら 両方のエッジを検出する(片方エッジにしたいがそうするとなぜかスタンバイから復帰しない)
 ISR(PORTB_PORT_vect) {
+	
 	PORTB_INTFLAGS = PORTB_INTFLAGS | 0b00000010; //割り込み要求フラグ解除
 
-	//PB0がLowだったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
+	//タクトスイッチが押されたら(PB1がLowだったら)
+	if(!(VPORTB_IN & PIN1_bm)) {
+		
+		wakeup = 1600;
+		
+		switch (mode) {
+			case MODE_CLOCK:
+				
+			break;
+
+			case MODE_HOUR_SET:
+				if(++hour >= 24) hour = 0;
+			break;
+
+			case MODE_MIN_SET:
+				if(++min >= 60) {
+					min = 0;
+					if(++hour >= 24) hour = 0;
+				}
+			break;
+		}
+		
+		return;
+	}
+
+	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
 		return;
 	}
 
-	wakeup = 800;
+	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
+	if(VPORTB_IN & PIN0_bm) {
+		wakeup = 800;
+		return;
+	}
 
-	//VPORTA_OUT = VPORTA_OUT | 0b00001000;
-	//sens_delay_ms(5000);
-	//VPORTA_OUT = VPORTA_OUT & 0b11110111;
 	return;
 }
 
@@ -233,7 +295,8 @@ ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
 	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
 
-	if (++min >= 60) {
+	//時計を進める
+	if (mode == MODE_CLOCK && ++min >= 60) {
 		min = 0;
 		if(++hour >= 24) hour = 0;
 	}
@@ -282,7 +345,7 @@ int main(void) {
 	PORTB_PIN0CTRL = 0b00000001; //プルアップ無効 両方のエッジを検出する
 
 	//タクトスイッチ入力
-	PORTB_PIN1CTRL = 0b00001000; //プルアップ有効
+	PORTB_PIN1CTRL = 0b00001001; //プルアップ有効 両方のエッジを検出する
 
 
 	
@@ -307,7 +370,7 @@ int main(void) {
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
 	TCA0_SINGLE_CTRLB = 0b00000000; //
 	TCA0_SINGLE_CMP0 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
-	TCA0_SINGLE_INTCTRL = 0b00010000; //TRIGA割り込み許可
+	TCA0_SINGLE_INTCTRL = 0b00010000; //CMP0割り込み許可
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
@@ -320,6 +383,7 @@ int main(void) {
 
 		if(!wakeup) {
 			seg_all_off();
+			change_mode(MODE_CLOCK);
 			sleep_mode();
 		}
 
