@@ -193,6 +193,18 @@ ISR (TCA0_CMP0_vect) {
 		dig5   = seg[zerocheck];
 	}
 
+	//時刻設定時の点滅演出
+	//点滅カウンター
+	static uint8_t wink = 0;
+	if(mode == MODE_HOUR_SET) {
+		if(++wink < 128) dig4 = dig5 = 0b00000000;
+	}else if(mode == MODE_MIN_SET) {
+		if(++wink < 128) dig1 = dig2 = 0b00000000;
+	}else{
+		wink = 0;
+	}
+
+
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
 
@@ -240,6 +252,7 @@ ISR (TCA0_CMP0_vect) {
 		}else{
 			if(++long_push > 300) {
 				long_push = 0;
+				RTC_CNT = 0; //時刻設定をした後、秒数が0から始まるようにする
 				change_mode(0);
 			}
 		}

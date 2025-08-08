@@ -193,7 +193,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000      0x4c0
+.text           0x00000000      0x504
  *(.vectors)
  .vectors       0x00000000       0x7c C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
                 0x00000000                __vector_default
@@ -289,21 +289,21 @@ END GROUP
                 0x000000d4       0x22 main.o
                 0x000000d4                change_mode
  .text.__vector_10
-                0x000000f6      0x1ba main.o
+                0x000000f6      0x1fe main.o
                 0x000000f6                __vector_10
  .text.__vector_4
-                0x000002b0       0x70 main.o
-                0x000002b0                __vector_4
+                0x000002f4       0x70 main.o
+                0x000002f4                __vector_4
  .text.__vector_6
-                0x00000320       0x5e main.o
-                0x00000320                __vector_6
- .text.main     0x0000037e      0x13e main.o
-                0x0000037e                main
-                0x000004bc                . = ALIGN (0x2)
+                0x00000364       0x5e main.o
+                0x00000364                __vector_6
+ .text.main     0x000003c2      0x13e main.o
+                0x000003c2                main
+                0x00000500                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x000004bc        0x0 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
-                0x000004bc                _exit
-                0x000004bc                exit
+ .fini9         0x00000500        0x0 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
+                0x00000500                _exit
+                0x00000500                exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -322,16 +322,16 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x000004bc        0x4 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
+ .fini0         0x00000500        0x4 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
  *(.fini0)
-                0x000004c0                _etext = .
+                0x00000504                _etext = .
 
 .rodata
  *(.rodata)
  *(.rodata*)
  *(.gnu.linkonce.r*)
 
-.data           0x00803800        0xc load address 0x000004c0
+.data           0x00803800        0xc load address 0x00000504
                 0x00803800                PROVIDE (__data_start, .)
  *(.data)
  *(.data*)
@@ -345,36 +345,38 @@ END GROUP
                 0x0080380c                _edata = .
                 0x0080380c                PROVIDE (__data_end, .)
 
-.bss            0x0080380c        0x9
+.bss            0x0080380c        0xa
                 0x0080380c                PROVIDE (__bss_start, .)
  *(.bss)
  *(.bss*)
  .bss.sel.3521  0x0080380c        0x1 main.o
- .bss.request_increment_min
+ .bss.wink.3528
                 0x0080380d        0x1 main.o
-                0x0080380d                request_increment_min
- .bss.request_increment_hour
+ .bss.request_increment_min
                 0x0080380e        0x1 main.o
-                0x0080380e                request_increment_hour
+                0x0080380e                request_increment_min
+ .bss.request_increment_hour
+                0x0080380f        0x1 main.o
+                0x0080380f                request_increment_hour
  .bss.long_push
-                0x0080380f        0x2 main.o
-                0x0080380f                long_push
- .bss.wakeup    0x00803811        0x2 main.o
-                0x00803811                wakeup
- .bss.hour      0x00803813        0x1 main.o
-                0x00803813                hour
- .bss.min       0x00803814        0x1 main.o
-                0x00803814                min
+                0x00803810        0x2 main.o
+                0x00803810                long_push
+ .bss.wakeup    0x00803812        0x2 main.o
+                0x00803812                wakeup
+ .bss.hour      0x00803814        0x1 main.o
+                0x00803814                hour
+ .bss.min       0x00803815        0x1 main.o
+                0x00803815                min
  *(COMMON)
-                0x00803815                PROVIDE (__bss_end, .)
-                0x000004c0                __data_load_start = LOADADDR (.data)
-                0x000004cc                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x00803816                PROVIDE (__bss_end, .)
+                0x00000504                __data_load_start = LOADADDR (.data)
+                0x00000510                __data_load_end = (__data_load_start + SIZEOF (.data))
 
-.noinit         0x00803815        0x0
+.noinit         0x00803816        0x0
                 [!provide]                PROVIDE (__noinit_start, .)
  *(.noinit*)
                 [!provide]                PROVIDE (__noinit_end, .)
-                0x00803815                _end = .
+                0x00803816                _end = .
                 [!provide]                PROVIDE (__heap_start, .)
 
 .eeprom         0x00810000        0x0
@@ -447,34 +449,34 @@ END GROUP
 .debug_pubnames
  *(.debug_pubnames)
 
-.debug_info     0x00000000     0x1e49
+.debug_info     0x00000000     0x1e5b
  *(.debug_info .gnu.linkonce.wi.*)
  .debug_info    0x00000000     0x19ed C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
- .debug_info    0x000019ed      0x45c main.o
+ .debug_info    0x000019ed      0x46e main.o
 
-.debug_abbrev   0x00000000     0x1aa7
+.debug_abbrev   0x00000000     0x1a9e
  *(.debug_abbrev)
  .debug_abbrev  0x00000000     0x1888 C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
- .debug_abbrev  0x00001888      0x21f main.o
+ .debug_abbrev  0x00001888      0x216 main.o
 
-.debug_line     0x00000000      0x5fc
+.debug_line     0x00000000      0x62c
  *(.debug_line .debug_line.* .debug_line_end)
  .debug_line    0x00000000      0x151 C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
- .debug_line    0x00000151      0x4ab main.o
+ .debug_line    0x00000151      0x4db main.o
 
 .debug_frame    0x00000000      0x11c
  *(.debug_frame)
  .debug_frame   0x00000000      0x11c main.o
 
-.debug_str      0x00000000      0xcfa
+.debug_str      0x00000000      0xcff
  *(.debug_str)
  .debug_str     0x00000000      0xacf C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
- .debug_str     0x00000acf      0x22b main.o
-                                0x278 (size before relaxing)
+ .debug_str     0x00000acf      0x230 main.o
+                                0x27d (size before relaxing)
 
-.debug_loc      0x00000000      0x3da
+.debug_loc      0x00000000      0x444
  *(.debug_loc)
- .debug_loc     0x00000000      0x3da main.o
+ .debug_loc     0x00000000      0x444 main.o
 
 .debug_macinfo
  *(.debug_macinfo)
