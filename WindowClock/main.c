@@ -123,6 +123,9 @@ uint8_t mode = MODE_CLOCK;
 //ボタン 長押しチェック用変数
 volatile uint16_t long_push = 0;
 
+//リクエスト変数
+uint8_t request_increment_hour = 0;
+uint8_t request_increment_min  = 0;
 
 //ボタン操作を受け付けながら待機する関数
 void sens_delay_ms(uint16_t num) {
@@ -235,7 +238,7 @@ ISR (TCA0_CMP0_vect) {
 		if(VPORTB_IN & PIN1_bm) {
 			long_push = 0;
 		}else{
-			if(++long_push > 400) {
+			if(++long_push > 300) {
 				long_push = 0;
 				change_mode(0);
 			}
@@ -262,14 +265,11 @@ ISR(PORTB_PORT_vect) {
 			break;
 
 			case MODE_HOUR_SET:
-				if(++hour >= 24) hour = 0;
+				request_increment_hour = 1;
 			break;
 
 			case MODE_MIN_SET:
-				if(++min >= 60) {
-					min = 0;
-					if(++hour >= 24) hour = 0;
-				}
+				request_increment_min = 1;
 			break;
 		}
 		
@@ -385,6 +385,30 @@ int main(void) {
 			seg_all_off();
 			change_mode(MODE_CLOCK);
 			sleep_mode();
+		}
+
+		//リクエスト処理
+		if(request_increment_hour) {
+			request_increment_hour = 0;
+			while(!(VPORTB_IN & PIN1_bm));
+			if(mode == MODE_HOUR_SET) {
+				if(++hour >= 24) hour = 0;
+				_delay_ms(100);
+				request_increment_hour = 0;
+			}
+		}
+
+		if(request_increment_min) {
+			request_increment_min = 0;
+			while(!(VPORTB_IN & PIN1_bm));
+			if(mode == MODE_MIN_SET) {
+				if(++min >= 60) {
+					min = 0;
+					if(++hour >= 24) hour = 0;
+				}
+				_delay_ms(100);
+				request_increment_min = 0;
+			}
 		}
 
 		_delay_ms(1);
