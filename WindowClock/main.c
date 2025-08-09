@@ -84,13 +84,8 @@ PC3 … 7seg C3
 // 定義とインクルード
 //---------------------------------
 
-//#define F_CPU 250000UL
-#define   F_CPU 1000000UL
-//#define F_CPU 32000UL
+#define   F_CPU 1000000UL //16MHzを16分周
 
-
-#include <stdio.h>
-#include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -129,17 +124,19 @@ volatile uint16_t long_push = 0;
 uint8_t change_mode_after = 0;
 
 //現在の電源電圧と太陽電池電圧
-float supply_v = 3.0;
-float  solar_v = 3.0;
+float supply_v = 0.0;
+float  solar_v = 0.0;
 
-//一時的に電圧を表示するフラグ
+//MODE_CLOCKでボタンを押した時(非長押し)、一時的に電圧を表示するフラグ。wakeupと同様にタイマーでデクリメントしていき0になったら表示を戻す
 uint8_t display_v = 0;
 
-//起きたのにまだ電圧測定してないフラグ
+//起きたのにまだ電圧測定してないの？的なフラグ
+//寝る前に1をセットして起きたら電圧を測定し0に戻す。0なら以後電圧を測定しない。この動作で起きた時に1回だけ電圧測定する動作になる
 uint8_t yet_v = 1;
 
 //7セグの明るさレベル 3段階 100% 50% 25%
 uint8_t brightness = 3;
+//7セグを間欠で点灯させるために0～7までを繰り返し数えるカウンター
 uint8_t bn_pwm_count = 0;
 
 //---------------------------------
@@ -169,7 +166,7 @@ void get_v (void) {
 	PORTB_PIN1CTRL = 0b00000000; //プルアップ無効 エッジを検出しない
 	VPORTB_DIR    |= 0b00000010; //出力モードに変更
 	VPORTB_OUT    &= 0b11111101; //出力Low
-	_delay_us(500);//少し待機
+	_delay_ms(1);//少し待機
 	VPORTB_DIR    &= 0b11111101; //入力モードに戻す
 
 	//ADC入力ピンの選択
@@ -196,7 +193,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 6400 ;
+			wakeup = 4800;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -323,7 +320,8 @@ ISR (TCA0_CMP0_vect) {
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
 
-	//明るさ調整
+	//7セグの明るさ調整
+	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
 	if(solar_v > 1.2) {
 		brightness = 3;
 	}else if(solar_v > 0.5) {
@@ -332,24 +330,23 @@ ISR (TCA0_CMP0_vect) {
 		brightness = 1;
 	}
 
-
+	//点灯判定
 	uint8_t seg_on = 0;
-	if(++bn_pwm_count > 15) {
-		bn_pwm_count = 0;
-	}
+	if(++bn_pwm_count > 7) bn_pwm_count = 0;
 
-	if(brightness == 3) {
+	if(brightness == 3) { //bn_pwm_countがいくつでも全てのタイミングで点灯
 		seg_on = 1;
 	}else if(brightness == 2) {
-		if(bn_pwm_count % 2) {
+		if(bn_pwm_count % 2) { //bn_pwm_countが1、3、5、7のタイミングで点灯
 			seg_on = 1;
 		}
 	}else if(brightness == 1) {
-		if(!(bn_pwm_count % 4)) {
+		if(!(bn_pwm_count % 4)) { //bn_pwm_countが0、4のタイミングで点灯
 			seg_on = 1;
 		}
 	}
 
+	//点灯実行
 	if(seg_on) {
 		switch ( sel ) {
 
@@ -426,7 +423,12 @@ ISR(PORTB_PORT_vect) {
 
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
-		wakeup = 3200;
+
+		//電源電圧に応じて起きている時間を決める
+		if     (supply_v > 4.3) wakeup = 3200;
+		else if(supply_v > 3.3) wakeup = 2600;
+		else if(supply_v > 2.6) wakeup = 2000;
+		else wakeup = 1400;
 
 		//起きたら一度だけ電圧測定する
 		if(yet_v) {
