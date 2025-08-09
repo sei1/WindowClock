@@ -308,11 +308,13 @@ ISR (TCA0_CMP0_vect) {
 
 	//時刻設定時の点滅演出
 	//点滅カウンター
-	static uint8_t wink = 0;
+	static uint16_t wink = 0;
 	if(mode == MODE_HOUR_SET) {
-		if(++wink < 128) dig4 = dig5 = 0b00000000;
+		if(++wink < 512) dig4 = dig5 = 0b00000000;
+		else if (wink > 1023) wink = 0;
 	}else if(mode == MODE_MIN_SET) {
-		if(++wink < 128) dig1 = dig2 = 0b00000000;
+		if(++wink < 512) dig1 = dig2 = 0b00000000;
+		else if (wink > 1023) wink = 0;
 	}else{
 		wink = 0;
 	}
@@ -506,7 +508,7 @@ int main(void) {
 	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 32768分周 RTC許可
 
 	//割り込みたい間隔の秒数-1
-	RTC_CMP = 0;
+	RTC_CMP = 59;
 	
 	// //RTC PIT 周期割り込み設定
 	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
