@@ -89,11 +89,18 @@ PC3 … 7seg C3
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
+#include <avr/wdt.h>
 
 //7セグ表示モード
 #define MODE_CLOCK 1
 #define MODE_HOUR_SET 2
 #define MODE_MIN_SET 3
+
+//キャパシタ保護のため放電動作を行うキャパシタ電圧
+#define MAX_SUPPLY_V 5.2
+
+//低電圧リセットをかける電圧
+#define MIN_SUPPLY_V 1.70
 
 
 //---------------------------------
@@ -138,6 +145,9 @@ uint8_t yet_v = 1;
 uint8_t brightness = 3;
 //7セグを間欠で点灯させるために0～7までを繰り返し数えるカウンター
 uint8_t bn_pwm_count = 0;
+
+//キャパシタ保護用放電動作中フラグ
+volatile uint8_t discharge = 0;
 
 //---------------------------------
 // プログラム本文
@@ -239,7 +249,7 @@ void sens_delay_ms (uint16_t num) {
 //7セグをすべて消灯する関数
 void seg_all_off (void) {
 
-	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
+	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	VPORTA_OUT = VPORTA_OUT & 0b00000001;
 	VPORTC_OUT = VPORTC_OUT & 0b11111110;
 	//ダイナミック点灯用トランジスタも全てOFF
@@ -262,15 +272,15 @@ void change_mode (uint8_t cmode) {
 //TCA割り込み
 ISR (TCA0_CMP0_vect) {
 
+	TCA0_SINGLE_CNT = 0;//カウントリセット
+	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
+
 	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
 	if(!wakeup) {
 		seg_all_off();
 		return;
 	}
-
-	TCA0_SINGLE_CNT = 0;//カウントリセット
-	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
 
 	static uint8_t sel = 0;
 	uint8_t dig1, dig2, dig3, dig4, dig5 = 0;
@@ -286,7 +296,7 @@ ISR (TCA0_CMP0_vect) {
 		dig3  = 0b00000000;
 		dig4  = seg[slv % 10];
 		dig5  = seg[(slv / 10) % 10];
-		dig2c = dig5c =0b00000001;//ドット(小数点)
+		dig2c = dig5c = 0b00000001;//ドット(小数点)
 
 	}else{//時刻を表示
 		dig1  = seg[min % 10];
@@ -317,12 +327,12 @@ ISR (TCA0_CMP0_vect) {
 	}
 
 
-	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
+	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
 
 	//7セグの明るさ調整
 	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
-	if(solar_v > 1.2) {
+	if(solar_v > 1.2 || discharge) {
 		brightness = 3;
 	}else if(solar_v > 0.5) {
 		brightness = 2;
@@ -452,6 +462,28 @@ ISR(RTC_CNT_vect) {
 		if(++hour >= 24) hour = 0;
 	}
 	
+	//30分に1回やる処理
+	if(!(min % 30)) {
+
+		if(!wakeup){
+			get_v();
+			//低電圧再起動処理 起きてる時にやると一瞬7セグがちらつくので起きてない時(厳密には起きてるカウントがされていない時)にやる
+			if(supply_v <= MIN_SUPPLY_V) {
+				//停止処理
+				//ウォッチドッグタイマを0.008秒で起動
+				wdt_enable(0b00000001);//0.008秒の場合、右4桁をデータシート上の8CLKのレジスタ設定値にする
+				//待機(しているあいだにウォッチドッグリセットがかかる)
+				_delay_ms(100);
+			}
+			//高電圧放電処理
+			if(supply_v >= MAX_SUPPLY_V) {
+				wakeup = 6400;
+				discharge = 1;
+			}
+		}
+
+	}
+
 	return;
 }
 
@@ -510,7 +542,7 @@ int main(void) {
 	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 32768分周 RTC許可
 
 	//割り込みたい間隔の秒数-1
-	RTC_CMP = 59;
+	RTC_CMP = 0;
 	
 	// //RTC PIT 周期割り込み設定
 	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
@@ -537,6 +569,18 @@ int main(void) {
 	
 	while (1) {
 
+		//放電中ループ 起き続け3秒毎に電圧を計り下がっていたらブレイク
+		while (discharge) {
+			get_v();
+			if(supply_v < (MAX_SUPPLY_V - 0.1)) {
+				discharge = 0;
+				wakeup = 0;
+				break;
+			}
+			sens_delay_ms(3000);
+			wakeup = 6400;
+		}
+
 		if(!wakeup) {
 			//寝る準備
 			seg_all_off();
@@ -546,7 +590,7 @@ int main(void) {
 			//寝る
 			sleep_mode();
 		}
-
+		
 		sens_delay_ms(5);
 
 	}
