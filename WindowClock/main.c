@@ -131,52 +131,14 @@ uint8_t change_mode_after = 0;
 float supply_v = 3.0;
 float  solar_v = 3.0;
 
+//一時的に電圧を表示するフラグ
+uint8_t display_v = 0;
+
 
 //---------------------------------
 // プログラム本文
 //---------------------------------
 
-//ボタン操作を受け付けながら待機する関数
-void sens_delay_ms (uint16_t num) {
-
-	for (unsigned int i = 0; i < num; i++){
-		if(!(VPORTB_IN & PIN1_bm)) {
-
-			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 1600;
-		
-			switch (mode) {
-				case MODE_CLOCK:
-					
-				break;
-
-				case MODE_HOUR_SET:
-					while(!(VPORTB_IN & PIN1_bm));
-					if(change_mode_after) {
-						change_mode_after = 0;
-					}else{
-						if(++hour >= 24) hour = 0;
-						_delay_ms(100);
-					}
-				break;
-
-				case MODE_MIN_SET:
-					while(!(VPORTB_IN & PIN1_bm));
-					if(change_mode_after) {
-						change_mode_after = 0;
-					}else{
-						if(++min >= 60) {
-							min = 0;
-							if(++hour >= 24) hour = 0;
-							_delay_ms(100);
-						}
-					}
-				break;
-			}
-		}
-		_delay_ms(1);
-	}
-}
 
 //キャパシタに蓄えられた電源電圧を取得する関数
 float get_supply_v (void) {
@@ -231,6 +193,58 @@ float get_solar_v (void) {
 	return x * 1.1 / y;
 }
 
+//ボタン操作を受け付けながら待機する関数
+void sens_delay_ms (uint16_t num) {
+
+	for (unsigned int i = 0; i < num; i++){
+		if(!(VPORTB_IN & PIN1_bm)) {
+
+			//ここにタクトスイッチが押された時の動作を記述
+			wakeup = 1600;
+		
+			switch (mode) {
+				case MODE_CLOCK:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						//電源電圧の取得
+						supply_v = get_supply_v();
+						//太陽電池電圧の取得
+						solar_v = get_solar_v();
+						display_v = 200;
+						_delay_ms(100);
+					}
+				break;
+
+				case MODE_HOUR_SET:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						if(++hour >= 24) hour = 0;
+						_delay_ms(100);
+					}
+				break;
+
+				case MODE_MIN_SET:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						if(++min >= 60) {
+							min = 0;
+							if(++hour >= 24) hour = 0;
+							_delay_ms(100);
+						}
+					}
+				break;
+			}
+		}
+		_delay_ms(1);
+	}
+}
+
 //7セグをすべて消灯する関数
 void seg_all_off (void) {
 
@@ -268,19 +282,34 @@ ISR (TCA0_CMP0_vect) {
 	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
 
 	static uint8_t sel = 0;
-	uint8_t dig1, dig2, dig3, dig4, dig5;
+	uint8_t dig1, dig2, dig3, dig4, dig5 = 0;
+	uint8_t dig1c, dig2c, dig4c, dig5c;
+	dig1c = dig2c = dig4c = dig5c = 0;
 
-	dig1   = seg[min % 10];
-	dig2   = seg[(min / 10) % 10];
-	dig3   = 0b00000110;
-	dig4   = seg[hour % 10];
+	//太陽電池の発電電圧とキャパシタの電圧を表示
+	if(display_v && mode == MODE_CLOCK) {
+		uint8_t spv = supply_v * 10;
+		uint8_t slv =  solar_v * 10;
+		dig1  = seg[spv % 10];
+		dig2  = seg[(spv / 10) % 10];
+		dig3  = 0b00000000;
+		dig4  = seg[slv % 10];
+		dig5  = seg[(slv / 10) % 10];
+		dig2c = dig5c =0b00000001;//ドット(小数点)
 
-	//dig5のみ0なら不点灯にする(ゼロサプレス)
-	uint8_t zerocheck = (hour / 10) % 10;
-	if(zerocheck == 0) {
-		dig5 = 0b00000000;
-	}else{
-		dig5   = seg[zerocheck];
+	}else{//時刻を表示
+		dig1  = seg[min % 10];
+		dig2  = seg[(min / 10) % 10];
+		dig3  = 0b00000110;
+		dig4  = seg[hour % 10];
+
+		//dig5のみ0なら不点灯にする(ゼロサプレス)
+		uint8_t zerocheck = (hour / 10) % 10;
+		if(zerocheck == 0) {
+			dig5 = 0b00000000;
+		}else{
+			dig5   = seg[zerocheck];
+		}
 	}
 
 	//時刻設定時の点滅演出
@@ -302,13 +331,14 @@ ISR (TCA0_CMP0_vect) {
 
 		case 0:
 		VPORTB_OUT = VPORTB_OUT | 0b00010000;
-		//VPORTA_OUT = (dig1  & 0b01111111) | (PORTD & 0b10000000);//PD7に影響を与えないようマスク処理をしてPD0～6に値を代入
 		VPORTA_OUT = dig1;
+		VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 		break;
 
 		case 1:
 		VPORTC_OUT = VPORTC_OUT | 0b00001000;
 		VPORTA_OUT = dig2;
+		VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 		break;
 
 		case 2:
@@ -319,11 +349,13 @@ ISR (TCA0_CMP0_vect) {
 		case 3:
 		VPORTC_OUT = VPORTC_OUT | 0b00000100;
 		VPORTA_OUT = dig4;
+		VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 		break;
 
 		case 4:
 		VPORTC_OUT = VPORTC_OUT | 0b00000010;
 		VPORTA_OUT = dig5;
+		VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 		break;
 
 	}
@@ -335,6 +367,9 @@ ISR (TCA0_CMP0_vect) {
 
 		//スリープへ向けwakeupを減らす
 		if(wakeup) wakeup--;
+
+		//電圧表示時間を減らす
+		if(display_v) display_v--;
 
 		//タクトスイッチが長押しされている場合、長押しカウントを加算
 		if(VPORTB_IN & PIN1_bm) {
@@ -482,8 +517,11 @@ int main(void) {
 	while (1) {
 
 		if(!wakeup) {
+			//寝る準備
 			seg_all_off();
 			change_mode(MODE_CLOCK);
+			display_v = 0;
+			//寝る
 			sleep_mode();
 		}
 
