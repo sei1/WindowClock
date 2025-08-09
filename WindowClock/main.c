@@ -542,7 +542,7 @@ int main(void) {
 	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 32768分周 RTC許可
 
 	//割り込みたい間隔の秒数-1
-	RTC_CMP = 0;
+	RTC_CMP = 59;
 	
 	// //RTC PIT 周期割り込み設定
 	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
