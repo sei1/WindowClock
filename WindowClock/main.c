@@ -134,32 +134,21 @@ float  solar_v = 3.0;
 //一時的に電圧を表示するフラグ
 uint8_t display_v = 0;
 
+//起きたのにまだ電圧測定してないフラグ
+uint8_t yet_v = 1;
+
 
 //---------------------------------
 // プログラム本文
 //---------------------------------
 
 
-//キャパシタに蓄えられた電源電圧を取得する関数
-float get_supply_v (void) {
+//キャパシタに蓄えられた電源電圧と太陽電池の発電電圧を取得する関数
+void get_v (void) {
 	
-	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
-	ADC0_MUXPOS = 0b00011101; //基準電圧
-
-	ADC0_COMMAND = 1;//AD変換開始
-	while(ADC0_COMMAND);
-	ADC0_COMMAND = 0;//AD変換終了
-	
-	//電源電圧を算出して返す
-	return 1023 * 1.1 / ADC0_RES;
-}
-
 	uint16_t x = 0;
 	uint16_t y = 0;
 
-//太陽電池の発電電圧を取得する関数
-float get_solar_v (void) {
-	
 	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
 	ADC0_MUXPOS = 0b00011101; //基準電圧
 
@@ -168,13 +157,16 @@ float get_solar_v (void) {
 	ADC0_COMMAND = 0;//AD変換終了
 
 	y = ADC0_RES;
+	
+	//電源電圧を算出
+	supply_v = 1023 * 1.1 / y;
 
 	//PB1をタクトスイッチ入力から一時的に太陽電池電圧の測定ピンに切り替える
 	PORTB_PIN1CTRL = 0b00000000; //プルアップ無効 エッジを検出しない
-	VPORTB_DIR    |= 0b00000010; //ポートB 
-	VPORTB_OUT    &= 0b11111101; //ポートB
-	_delay_us(500);
-	VPORTB_DIR    &= 0b11111101; //ポートB
+	VPORTB_DIR    |= 0b00000010; //出力モードに変更
+	VPORTB_OUT    &= 0b11111101; //出力Low
+	_delay_us(500);//少し待機
+	VPORTB_DIR    &= 0b11111101; //入力モードに戻す
 
 	//ADC入力ピンの選択
 	// PB1ピンの電圧 / 電源電圧 を10bit(1024段階)で測定
@@ -189,8 +181,8 @@ float get_solar_v (void) {
 	//PB1のプルアップを有効に戻す
 	PORTB_PIN1CTRL = 0b00001001; //プルアップ有効 両方のエッジを検出する
 
-	//太陽電池電圧を算出して返す
-	return x * 1.1 / y;
+	//太陽電池電圧を算出
+	solar_v = x * 1.1 / y;
 }
 
 //ボタン操作を受け付けながら待機する関数
@@ -208,10 +200,8 @@ void sens_delay_ms (uint16_t num) {
 					if(change_mode_after) {
 						change_mode_after = 0;
 					}else{
-						//電源電圧の取得
-						supply_v = get_supply_v();
-						//太陽電池電圧の取得
-						solar_v = get_solar_v();
+						//電圧の取得
+						get_v();
 						display_v = 200;
 						_delay_ms(100);
 					}
@@ -401,6 +391,11 @@ ISR(PORTB_PORT_vect) {
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
 		wakeup = 800;
+
+		if(yet_v) {
+			yet_v = 0;
+			get_v();
+		}
 		return;
 	}
 
@@ -417,18 +412,6 @@ ISR(RTC_CNT_vect) {
 		min = 0;
 		if(++hour >= 24) hour = 0;
 	}
-
-	//電圧測定(スリープ中にやる)
-	if(!wakeup) {
-		//電源電圧の取得
-		supply_v = get_supply_v();
-
-		//太陽電池電圧の取得
-		solar_v = get_solar_v();
-
-		if(solar_v >3)  _delay_ms(1);
-	}
-
 	
 	return;
 }
@@ -456,7 +439,6 @@ int main(void) {
 	//■□■――――――――――――――――――――――――――――――――――――■□■
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
-	//CLKCTRL_MCLKCTRLA = 0b00000001; //32 KHz内部超低消費電力オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_MCLKCTRLB = 0b00001011; //64分周
 
@@ -521,6 +503,7 @@ int main(void) {
 			seg_all_off();
 			change_mode(MODE_CLOCK);
 			display_v = 0;
+			yet_v = 1;
 			//寝る
 			sleep_mode();
 		}
