@@ -84,7 +84,8 @@ PC3 … 7seg C3
 // 定義とインクルード
 //---------------------------------
 
-#define F_CPU 250000UL
+//#define F_CPU 250000UL
+#define   F_CPU 1000000UL
 //#define F_CPU 32000UL
 
 
@@ -137,6 +138,9 @@ uint8_t display_v = 0;
 //起きたのにまだ電圧測定してないフラグ
 uint8_t yet_v = 1;
 
+//7セグの明るさレベル 3段階 100% 50% 25%
+uint8_t brightness = 3;
+uint8_t bn_pwm_count = 0;
 
 //---------------------------------
 // プログラム本文
@@ -192,7 +196,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 1600;
+			wakeup = 6400 ;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -317,38 +321,68 @@ ISR (TCA0_CMP0_vect) {
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
 
-	switch ( sel ) {
-
-		case 0:
-		VPORTB_OUT = VPORTB_OUT | 0b00010000;
-		VPORTA_OUT = dig1;
-		VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
-		break;
-
-		case 1:
-		VPORTC_OUT = VPORTC_OUT | 0b00001000;
-		VPORTA_OUT = dig2;
-		VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
-		break;
-
-		case 2:
-		VPORTB_OUT = VPORTB_OUT | 0b00100000;
-		VPORTA_OUT = dig3;
-		break;
-
-		case 3:
-		VPORTC_OUT = VPORTC_OUT | 0b00000100;
-		VPORTA_OUT = dig4;
-		VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
-		break;
-
-		case 4:
-		VPORTC_OUT = VPORTC_OUT | 0b00000010;
-		VPORTA_OUT = dig5;
-		VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
-		break;
-
+	//明るさ調整
+	if(solar_v > 1.2) {
+		brightness = 3;
+	}else if(solar_v > 0.5) {
+		brightness = 2;
+	}else{
+		brightness = 1;
 	}
+
+
+	uint8_t seg_on = 0;
+	if(++bn_pwm_count > 15) {
+		bn_pwm_count = 0;
+	}
+
+	if(brightness == 3) {
+		seg_on = 1;
+	}else if(brightness == 2) {
+		if(bn_pwm_count % 2) {
+			seg_on = 1;
+		}
+	}else if(brightness == 1) {
+		if(!(bn_pwm_count % 4)) {
+			seg_on = 1;
+		}
+	}
+
+	if(seg_on) {
+		switch ( sel ) {
+
+			case 0:
+			VPORTB_OUT = VPORTB_OUT | 0b00010000;
+			VPORTA_OUT = dig1;
+			VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			break;
+
+			case 1:
+			VPORTC_OUT = VPORTC_OUT | 0b00001000;
+			VPORTA_OUT = dig2;
+			VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			break;
+
+			case 2:
+			VPORTB_OUT = VPORTB_OUT | 0b00100000;
+			VPORTA_OUT = dig3;
+			break;
+
+			case 3:
+			VPORTC_OUT = VPORTC_OUT | 0b00000100;
+			VPORTA_OUT = dig4;
+			VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			break;
+
+			case 4:
+			VPORTC_OUT = VPORTC_OUT | 0b00000010;
+			VPORTA_OUT = dig5;
+			VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			break;
+
+		}
+	}
+
 
 	//5回に1回やること
 	if ( ++sel == 5 ) {
@@ -365,7 +399,7 @@ ISR (TCA0_CMP0_vect) {
 		if(VPORTB_IN & PIN1_bm) {
 			long_push = 0;
 		}else{
-			if(++long_push > 300) {
+			if(++long_push > 1200) {
 				long_push = 0;
 				RTC_CNT = 0; //時刻設定をした後、秒数が0から始まるようにする
 				change_mode(0);
@@ -390,8 +424,9 @@ ISR(PORTB_PORT_vect) {
 
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
-		wakeup = 800;
+		wakeup = 3200;
 
+		//起きたら一度だけ電圧測定する
 		if(yet_v) {
 			yet_v = 0;
 			get_v();
@@ -440,7 +475,7 @@ int main(void) {
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
-	CLKCTRL_MCLKCTRLB = 0b00001011; //64分周
+	CLKCTRL_MCLKCTRLB = 0b00000111; //16分周
 
 	//入出力モード設定
 	VPORTA_DIR = 0b11111111; //ポートA 
