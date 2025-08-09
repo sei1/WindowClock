@@ -127,11 +127,17 @@ volatile uint16_t long_push = 0;
 uint8_t request_increment_hour = 0;
 uint8_t request_increment_min  = 0;
 
-//現在の電源電圧
+//現在の電源電圧と太陽電池電圧
 float supply_v = 3.0;
+float  solar_v = 3.0;
+
+
+//---------------------------------
+// プログラム本文
+//---------------------------------
 
 //ボタン操作を受け付けながら待機する関数
-void sens_delay_ms(uint16_t num) {
+void sens_delay_ms (uint16_t num) {
 
 	for (unsigned int i = 0; i < num; i++){
 		if(!(VPORTB_IN & PIN1_bm)) {
@@ -145,8 +151,26 @@ void sens_delay_ms(uint16_t num) {
 }
 
 //キャパシタに蓄えられた電源電圧を取得する関数
-float get_supply_v(void) {
+float get_supply_v (void) {
+	
+	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
+	ADC0_MUXPOS = 0b00011101; //基準電圧
+
+	ADC0_COMMAND = 1;//AD変換開始
+	while(ADC0_COMMAND);
+	ADC0_COMMAND = 0;//AD変換終了
+	
+	//電源電圧を算出して返す
+	return 1023 * 1.1 / ADC0_RES;
+}
+
 	uint16_t x = 0;
+	uint16_t y = 0;
+
+//太陽電池の発電電圧を取得する関数
+float get_solar_v (void) {
+
+
 	
 	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
 	ADC0_MUXPOS = 0b00011101; //基準電圧
@@ -155,14 +179,34 @@ float get_supply_v(void) {
 	while(ADC0_COMMAND);
 	ADC0_COMMAND = 0;//AD変換終了
 
+	y = ADC0_RES;
+
+	//PB1をタクトスイッチ入力から一時的に太陽電池電圧の測定ピンに切り替える
+	PORTB_PIN1CTRL = 0b00000000; //プルアップ無効 エッジを検出しない
+	VPORTB_DIR    |= 0b00000010; //ポートB 
+	VPORTB_OUT    &= 0b11111101; //ポートB
+	_delay_us(500);
+	VPORTB_DIR    &= 0b11111101; //ポートB
+
+	//ADC入力ピンの選択
+	// PB1ピンの電圧 / 電源電圧 を10bit(1024段階)で測定
+	ADC0_MUXPOS = 0b00001010; //AIN10 = PB1
+
+	ADC0_COMMAND = 1;//AD変換開始
+	while(ADC0_COMMAND);
+	ADC0_COMMAND = 0;//AD変換終了
+
 	x = ADC0_RES;
-	
-	//電源電圧を算出して返す
-	return 1023 * 1.1 / x;
+
+	//PB1のプルアップを有効に戻す
+	PORTB_PIN1CTRL = 0b00001001; //プルアップ有効 両方のエッジを検出する
+
+	//太陽電池電圧を算出して返す
+	return x * 1.1 / y;
 }
 
 //7セグをすべて消灯する関数
-void seg_all_off(void) {
+void seg_all_off (void) {
 
 	//他のセルの消灯ドットを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	VPORTA_OUT = VPORTA_OUT & 0b00000001;
@@ -334,8 +378,17 @@ ISR(RTC_CNT_vect) {
 		if(++hour >= 24) hour = 0;
 	}
 
-	//電源電圧の取得
-	supply_v = get_supply_v();
+	//電圧測定(スリープ中にやる)
+	if(!wakeup) {
+		//電源電圧の取得
+		supply_v = get_supply_v();
+
+		//太陽電池電圧の取得
+		solar_v = get_solar_v();
+
+		if(solar_v >3)  _delay_ms(1);
+	}
+
 	
 	return;
 }
