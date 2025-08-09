@@ -127,6 +127,9 @@ volatile uint16_t long_push = 0;
 uint8_t request_increment_hour = 0;
 uint8_t request_increment_min  = 0;
 
+//現在の電源電圧
+float supply_v = 3.0;
+
 //ボタン操作を受け付けながら待機する関数
 void sens_delay_ms(uint16_t num) {
 
@@ -139,6 +142,23 @@ void sens_delay_ms(uint16_t num) {
 		}
 		_delay_ms(1);
 	}
+}
+
+//キャパシタに蓄えられた電源電圧を取得する関数
+float get_supply_v(void) {
+	uint16_t x = 0;
+	
+	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
+	ADC0_MUXPOS = 0b00011101; //基準電圧
+
+	ADC0_COMMAND = 1;//AD変換開始
+	while(ADC0_COMMAND);
+	ADC0_COMMAND = 0;//AD変換終了
+
+	x = ADC0_RES;
+	
+	//電源電圧を算出して返す
+	return 1023 * 1.1 / x;
 }
 
 //7セグをすべて消灯する関数
@@ -313,6 +333,9 @@ ISR(RTC_CNT_vect) {
 		min = 0;
 		if(++hour >= 24) hour = 0;
 	}
+
+	//電源電圧の取得
+	supply_v = get_adc();
 	
 	return;
 }
@@ -384,6 +407,12 @@ int main(void) {
 	TCA0_SINGLE_CTRLB = 0b00000000; //
 	TCA0_SINGLE_CMP0 = 1; // カウントがこの値に達したら割り込み(TCA0_CMP1_vect)が発生
 	TCA0_SINGLE_INTCTRL = 0b00010000; //CMP0割り込み許可
+
+	//ADC設定
+	ADC0_CTRLA = 0b00000001; //ADC Enable
+	ADC0_CTRLB = 0b00000000; //累積なし
+	ADC0_CTRLC = 0b01010101; //VREF = VDD, プリスケーラ1/64
+	VREF_CTRLA = 0b00010000; //内部基準電圧 1.1V
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
