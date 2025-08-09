@@ -335,7 +335,7 @@ ISR(RTC_CNT_vect) {
 	}
 
 	//電源電圧の取得
-	supply_v = get_adc();
+	supply_v = get_supply_v();
 	
 	return;
 }
