@@ -193,7 +193,7 @@ END GROUP
 .rela.plt
  *(.rela.plt)
 
-.text           0x00000000      0x504
+.text           0x00000000      0x508
  *(.vectors)
  .vectors       0x00000000       0x7c C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
                 0x00000000                __vector_default
@@ -297,13 +297,13 @@ END GROUP
  .text.__vector_6
                 0x00000364       0x5e main.o
                 0x00000364                __vector_6
- .text.main     0x000003c2      0x13e main.o
+ .text.main     0x000003c2      0x142 main.o
                 0x000003c2                main
-                0x00000500                . = ALIGN (0x2)
+                0x00000504                . = ALIGN (0x2)
  *(.fini9)
- .fini9         0x00000500        0x0 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
-                0x00000500                _exit
-                0x00000500                exit
+ .fini9         0x00000504        0x0 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
+                0x00000504                _exit
+                0x00000504                exit
  *(.fini9)
  *(.fini8)
  *(.fini8)
@@ -322,16 +322,16 @@ END GROUP
  *(.fini1)
  *(.fini1)
  *(.fini0)
- .fini0         0x00000500        0x4 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
+ .fini0         0x00000504        0x4 c:/program files (x86)/atmel/studio/7.0/toolchain/avr8/avr8-gnu-toolchain/bin/../lib/gcc/avr/5.4.0/avrxmega3\libgcc.a(_exit.o)
  *(.fini0)
-                0x00000504                _etext = .
+                0x00000508                _etext = .
 
 .rodata
  *(.rodata)
  *(.rodata*)
  *(.gnu.linkonce.r*)
 
-.data           0x00803800        0xc load address 0x00000504
+.data           0x00803800        0xc load address 0x00000508
                 0x00803800                PROVIDE (__data_start, .)
  *(.data)
  *(.data*)
@@ -369,8 +369,8 @@ END GROUP
                 0x00803815                min
  *(COMMON)
                 0x00803816                PROVIDE (__bss_end, .)
-                0x00000504                __data_load_start = LOADADDR (.data)
-                0x00000510                __data_load_end = (__data_load_start + SIZEOF (.data))
+                0x00000508                __data_load_start = LOADADDR (.data)
+                0x00000514                __data_load_end = (__data_load_start + SIZEOF (.data))
 
 .noinit         0x00803816        0x0
                 [!provide]                PROVIDE (__noinit_start, .)
