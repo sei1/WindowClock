@@ -123,9 +123,9 @@ uint8_t mode = MODE_CLOCK;
 //ボタン 長押しチェック用変数
 volatile uint16_t long_push = 0;
 
-//リクエスト変数
-uint8_t request_increment_hour = 0;
-uint8_t request_increment_min  = 0;
+//長押しでモードを切り替えた後、ボタンを離した時に1回ボタンを入力したことになってしまうのを防ぐため
+//モード切替後最初のボタン入力を1回無効にするフラグ
+uint8_t change_mode_after = 0;
 
 //現在の電源電圧と太陽電池電圧
 float supply_v = 3.0;
@@ -141,10 +141,38 @@ void sens_delay_ms (uint16_t num) {
 
 	for (unsigned int i = 0; i < num; i++){
 		if(!(VPORTB_IN & PIN1_bm)) {
+
 			//ここにタクトスイッチが押された時の動作を記述
-			VPORTA_OUT = VPORTA_OUT & 0b11110111;
-			_delay_ms(300);
-			VPORTA_OUT = VPORTA_OUT | 0b00001000;
+			wakeup = 1600;
+		
+			switch (mode) {
+				case MODE_CLOCK:
+					
+				break;
+
+				case MODE_HOUR_SET:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						if(++hour >= 24) hour = 0;
+						_delay_ms(100);
+					}
+				break;
+
+				case MODE_MIN_SET:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						if(++min >= 60) {
+							min = 0;
+							if(++hour >= 24) hour = 0;
+							_delay_ms(100);
+						}
+					}
+				break;
+			}
 		}
 		_delay_ms(1);
 	}
@@ -169,8 +197,6 @@ float get_supply_v (void) {
 
 //太陽電池の発電電圧を取得する関数
 float get_solar_v (void) {
-
-
 	
 	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
 	ADC0_MUXPOS = 0b00011101; //基準電圧
@@ -318,6 +344,7 @@ ISR (TCA0_CMP0_vect) {
 				long_push = 0;
 				RTC_CNT = 0; //時刻設定をした後、秒数が0から始まるようにする
 				change_mode(0);
+				change_mode_after = 1;
 			}
 		}
 	}
@@ -330,28 +357,6 @@ ISR (TCA0_CMP0_vect) {
 ISR(PORTB_PORT_vect) {
 	
 	PORTB_INTFLAGS = PORTB_INTFLAGS | 0b00000010; //割り込み要求フラグ解除
-
-	//タクトスイッチが押されたら(PB1がLowだったら)
-	if(!(VPORTB_IN & PIN1_bm)) {
-		
-		wakeup = 1600;
-		
-		switch (mode) {
-			case MODE_CLOCK:
-				
-			break;
-
-			case MODE_HOUR_SET:
-				request_increment_hour = 1;
-			break;
-
-			case MODE_MIN_SET:
-				request_increment_min = 1;
-			break;
-		}
-		
-		return;
-	}
 
 	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
@@ -434,7 +439,7 @@ int main(void) {
 	PORTB_PIN0CTRL = 0b00000001; //プルアップ無効 両方のエッジを検出する
 
 	//タクトスイッチ入力
-	PORTB_PIN1CTRL = 0b00001001; //プルアップ有効 両方のエッジを検出する
+	PORTB_PIN1CTRL = 0b00001000; //プルアップ有効
 
 
 	
@@ -482,32 +487,7 @@ int main(void) {
 			sleep_mode();
 		}
 
-		//リクエスト処理
-		if(request_increment_hour) {
-			request_increment_hour = 0;
-			while(!(VPORTB_IN & PIN1_bm));
-			if(mode == MODE_HOUR_SET) {
-				if(++hour >= 24) hour = 0;
-				_delay_ms(100);
-				request_increment_hour = 0;
-			}
-		}
-
-		if(request_increment_min) {
-			request_increment_min = 0;
-			while(!(VPORTB_IN & PIN1_bm));
-			if(mode == MODE_MIN_SET) {
-				if(++min >= 60) {
-					min = 0;
-					if(++hour >= 24) hour = 0;
-				}
-				_delay_ms(100);
-				request_increment_min = 0;
-			}
-		}
-
-		_delay_ms(1);
-		
+		sens_delay_ms(5);
 
 	}
 }
