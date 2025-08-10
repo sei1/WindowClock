@@ -635,8 +635,8 @@ Disassembly of section .text:
  5c8:	10 c0       	rjmp	.+32     	; 0x5ea <__vector_4+0x50>
  5ca:	30 9b       	sbis	0x06, 0	; 6
  5cc:	0e c0       	rjmp	.+28     	; 0x5ea <__vector_4+0x50>
- 5ce:	80 eb       	ldi	r24, 0xB0	; 176
- 5d0:	94 e0       	ldi	r25, 0x04	; 4
+ 5ce:	88 ee       	ldi	r24, 0xE8	; 232
+ 5d0:	93 e0       	ldi	r25, 0x03	; 3
  5d2:	80 93 1f 38 	sts	0x381F, r24	; 0x80381f <wakeup>
  5d6:	90 93 20 38 	sts	0x3820, r25	; 0x803820 <wakeup+0x1>
  5da:	80 91 01 38 	lds	r24, 0x3801	; 0x803801 <yet_v>

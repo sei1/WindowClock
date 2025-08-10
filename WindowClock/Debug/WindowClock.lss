@@ -1175,9 +1175,9 @@ ISR(PORTB_PORT_vect) {
  70a:	30 9b       	sbis	0x06, 0	; 6
  70c:	0e c0       	rjmp	.+28     	; 0x72a <__vector_4+0x50>
 
-		wakeup = 1200;
- 70e:	80 eb       	ldi	r24, 0xB0	; 176
- 710:	94 e0       	ldi	r25, 0x04	; 4
+		wakeup = 1000;
+ 70e:	88 ee       	ldi	r24, 0xE8	; 232
+ 710:	93 e0       	ldi	r25, 0x03	; 3
  712:	80 93 1f 38 	sts	0x381F, r24	; 0x80381f <wakeup>
  716:	90 93 20 38 	sts	0x3820, r25	; 0x803820 <wakeup+0x1>
 
