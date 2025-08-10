@@ -203,7 +203,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 4800;
+			wakeup = 4000;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -434,11 +434,7 @@ ISR(PORTB_PORT_vect) {
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
 
-		//電源電圧に応じて起きている時間を決める
-		if     (supply_v > 4.3) wakeup = 3200;
-		else if(supply_v > 3.3) wakeup = 2600;
-		else if(supply_v > 2.6) wakeup = 2000;
-		else wakeup = 1400;
+		wakeup = 1200;
 
 		//起きたら一度だけ電圧測定する
 		if(yet_v) {
