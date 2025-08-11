@@ -1,7 +1,7 @@
 ﻿/*
  * ATtiny1616
  * F_CPU=250000UL
- * 250kHz内部クロック(16MHz 64分周)
+ * 1MHz内部クロック(16MHz 16分周)
  *
  * Created: 2025/05/18
  * Author : SEIICHIRO SASAKI
@@ -143,8 +143,6 @@ uint8_t yet_v = 1;
 
 //7セグの明るさレベル 3段階 100% 50% 25%
 uint8_t brightness = 3;
-//7セグを間欠で点灯させるために0～7までを繰り返し数えるカウンター
-uint8_t bn_pwm_count = 0;
 
 //キャパシタ保護用放電動作中フラグ
 volatile uint8_t discharge = 0;
@@ -198,6 +196,16 @@ void get_v (void) {
 
 	//太陽電池電圧を算出
 	solar_v = x * 1.1 / y;
+
+	//7セグの明るさ設定
+	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
+	if(solar_v > 1.2 || discharge) {
+		brightness = 3;
+	}else if(solar_v > 0.5) {
+		brightness = 2;
+	}else{
+		brightness = 1;
+	}
 }
 
 //ボタン操作を受け付けながら待機する関数
@@ -207,7 +215,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 4000;
+			wakeup = 3200;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -288,8 +296,12 @@ ISR (TCA0_CMP0_vect) {
 
 	static uint8_t sel = 0;
 	uint8_t dig1, dig2, dig3, dig4, dig5 = 0;
-	uint8_t dig1c, dig2c, dig4c, dig5c;
-	dig1c = dig2c = dig4c = dig5c = 0;
+	uint8_t dig2c, dig5c;
+	dig2c = dig5c = 0;
+
+	//現状このドットは使用していないのでコメントアウト 使うときは有効化してください
+	//uint8_t dig1c, dig4c,;
+	//dig1c = di45c = 0;
 
 	//太陽電池の発電電圧とキャパシタの電圧を表示
 	if(display_v && mode == MODE_CLOCK) {
@@ -334,30 +346,22 @@ ISR (TCA0_CMP0_vect) {
 	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	seg_all_off();
 
-	//7セグの明るさ調整
-	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
-	if(solar_v > 1.2 || discharge) {
-		brightness = 3;
-	}else if(solar_v > 0.5) {
-		brightness = 2;
-	}else{
-		brightness = 1;
-	}
+	//明るさ設定値に応じた点灯判定
+	uint8_t seg_on = 0; //1を入れるとセグがONになる
+	static uint8_t bn_pwm_count = 0; //7セグを間欠で点灯させるために0～7までを繰り返し数えるカウンター
 
-	//点灯判定
-	uint8_t seg_on = 0;
 	if(++bn_pwm_count > 7) bn_pwm_count = 0;
 
-	if(brightness == 3) { //bn_pwm_countがいくつでも全てのタイミングで点灯
-		seg_on = 1;
+	if(brightness == 1) {
+		if(!(bn_pwm_count % 4)) { //bn_pwm_countが0、4のタイミングで点灯
+			seg_on = 1;
+		}
 	}else if(brightness == 2) {
 		if(bn_pwm_count % 2) { //bn_pwm_countが1、3、5、7のタイミングで点灯
 			seg_on = 1;
 		}
-	}else if(brightness == 1) {
-		if(!(bn_pwm_count % 4)) { //bn_pwm_countが0、4のタイミングで点灯
-			seg_on = 1;
-		}
+	}else if(brightness == 3) { //bn_pwm_countがいくつでも全てのタイミングで点灯
+		seg_on = 1;
 	}
 
 	//点灯実行
@@ -367,7 +371,8 @@ ISR (TCA0_CMP0_vect) {
 			case 0:
 			VPORTB_OUT = VPORTB_OUT | 0b00010000;
 			VPORTA_OUT = dig1;
-			VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			//現状このドットは使用していないのでコメントアウト 使うときは有効化してください
+			//VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 1:
@@ -384,7 +389,8 @@ ISR (TCA0_CMP0_vect) {
 			case 3:
 			VPORTC_OUT = VPORTC_OUT | 0b00000100;
 			VPORTA_OUT = dig4;
-			VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			//現状このドットは使用していないのでコメントアウト 使うときは有効化してください
+			//VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 4:
@@ -421,8 +427,6 @@ ISR (TCA0_CMP0_vect) {
 		}
 	}
 
-
-
 }
 
 //外部割り込み PB0が変化したら 両方のエッジを検出する(片方エッジにしたいがそうするとなぜかスタンバイから復帰しない)
@@ -438,7 +442,7 @@ ISR(PORTB_PORT_vect) {
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
 
-		wakeup = 1000;
+		wakeup = 800;
 
 		//起きたら一度だけ電圧測定する
 		if(yet_v) {
@@ -477,7 +481,7 @@ ISR(RTC_CNT_vect) {
 			}
 			//高電圧放電処理
 			if(supply_v >= MAX_SUPPLY_V) {
-				wakeup = 6400;
+				wakeup = 5200;
 				discharge = 1;
 			}
 		}
@@ -486,22 +490,6 @@ ISR(RTC_CNT_vect) {
 
 	return;
 }
-
-// ISR(RTC_PIT_vect) {
-// 	RTC_PITINTFLAGS = 0b00000001; //周期割り込み要求フラグ解除
-
-// 	//10秒に1回LEDを光らせる
-// 	if(++count == 10) {
-// 		count = 0;
-
-// 		VPORTA_OUT = VPORTA_OUT | 0b00001000;
-// 		_delay_ms(1);
-// 		VPORTA_OUT = VPORTA_OUT & 0b11110111;
-// 	}
-	
-// 	return;
-// }
-
 
 int main(void) {
 
@@ -525,12 +513,9 @@ int main(void) {
 
 	//焦電型赤外線センサー入力
 	PORTB_PIN0CTRL = 0b00000001; //プルアップ無効 両方のエッジを検出する
-
 	//タクトスイッチ入力
 	PORTB_PIN1CTRL = 0b00001000; //プルアップ有効
 
-
-	
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル
 	
@@ -543,10 +528,6 @@ int main(void) {
 
 	//割り込みたい間隔の秒数-1
 	RTC_CMP = 59;
-	
-	// //RTC PIT 周期割り込み設定
-	// RTC_PITCTRLA = 0b01110001; //16384分周 周期割り込み計時器許可
-	// RTC_PITINTCTRL = 0b00000001; //周期割り込み許可
 
 	//タイマーA
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
@@ -578,7 +559,7 @@ int main(void) {
 				break;
 			}
 			sens_delay_ms(3000);
-			wakeup = 6400;
+			wakeup = 5200;
 		}
 
 		if(!wakeup) {
