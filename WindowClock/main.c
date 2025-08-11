@@ -462,8 +462,8 @@ ISR(RTC_CNT_vect) {
 		if(++hour >= 24) hour = 0;
 	}
 	
-	//30分に1回やる処理
-	if(!(min % 30)) {
+	//1時間に1回やる処理
+	if(!min) {
 
 		if(!wakeup){
 			get_v();
