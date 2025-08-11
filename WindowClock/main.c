@@ -317,7 +317,11 @@ ISR (TCA0_CMP0_vect) {
 	}else{//時刻を表示
 		dig1  = seg[min % 10];
 		dig2  = seg[(min / 10) % 10];
-		dig3  = 0b00000110;
+		if(!(RTC_CNT % 2)) { //コロンの点滅
+			dig3  = 0b00000110;
+		}else{
+			dig3  = 0b00000000;
+		}
 		dig4  = seg[hour % 10];
 
 		//dig5のみ0なら不点灯にする(ゼロサプレス)
@@ -524,10 +528,10 @@ int main(void) {
 	RTC_CLKSEL  = 0b00000010; //クロック選択 XOSC32Kからの32.768 kHz
 	//STATUS.CTRLABUSYフラグが1の間待機
 	while((RTC_STATUS & 0b00000001));
-	RTC_CTRLA   = 0b11111001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 32768分周 RTC許可
+	RTC_CTRLA   = 0b11110001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周=0.5秒カウント RTC許可
 
-	//割り込みたい間隔の秒数-1
-	RTC_CMP = 59;
+	//割り込みたい間隔の秒数をx2-1して代入
+	RTC_CMP = 60 * 2 - 1;
 
 	//タイマーA
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
