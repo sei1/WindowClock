@@ -446,13 +446,14 @@ ISR(PORTB_PORT_vect) {
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
 
-		wakeup = 800;
-
-		//起きたら一度だけ電圧測定する
+		//まず電圧測定する
 		if(yet_v) {
-			yet_v = 0;
+			yet_v = 0; //電圧測定をしたことをyet_vに記録
 			get_v();
 		}
+
+		//一定時間起き上がらせる
+		wakeup = 800;
 		return;
 	}
 

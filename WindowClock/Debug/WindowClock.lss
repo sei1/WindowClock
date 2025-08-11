@@ -1147,22 +1147,23 @@ ISR(PORTB_PORT_vect) {
  6d6:	30 9b       	sbis	0x06, 0	; 6
  6d8:	0e c0       	rjmp	.+28     	; 0x6f6 <__vector_4+0x50>
 
-		wakeup = 800;
- 6da:	80 e2       	ldi	r24, 0x20	; 32
- 6dc:	93 e0       	ldi	r25, 0x03	; 3
- 6de:	80 93 1f 38 	sts	0x381F, r24	; 0x80381f <wakeup>
- 6e2:	90 93 20 38 	sts	0x3820, r25	; 0x803820 <wakeup+0x1>
-
-		//起きたら一度だけ電圧測定する
+		//まず電圧測定する
 		if(yet_v) {
- 6e6:	80 91 01 38 	lds	r24, 0x3801	; 0x803801 <yet_v>
- 6ea:	88 23       	and	r24, r24
- 6ec:	21 f0       	breq	.+8      	; 0x6f6 <__vector_4+0x50>
-			yet_v = 0;
- 6ee:	10 92 01 38 	sts	0x3801, r1	; 0x803801 <yet_v>
+ 6da:	80 91 01 38 	lds	r24, 0x3801	; 0x803801 <yet_v>
+ 6de:	88 23       	and	r24, r24
+ 6e0:	21 f0       	breq	.+8      	; 0x6ea <__vector_4+0x44>
+			yet_v = 0; //電圧測定をしたことをyet_vに記録
+ 6e2:	10 92 01 38 	sts	0x3801, r1	; 0x803801 <yet_v>
 			get_v();
- 6f2:	0e 94 5d 00 	call	0xba	; 0xba <get_v>
+ 6e6:	0e 94 5d 00 	call	0xba	; 0xba <get_v>
 		}
+
+		//一定時間起き上がらせる
+		wakeup = 800;
+ 6ea:	80 e2       	ldi	r24, 0x20	; 32
+ 6ec:	93 e0       	ldi	r25, 0x03	; 3
+ 6ee:	80 93 1f 38 	sts	0x381F, r24	; 0x80381f <wakeup>
+ 6f2:	90 93 20 38 	sts	0x3820, r25	; 0x803820 <wakeup+0x1>
 		return;
 	}
 
