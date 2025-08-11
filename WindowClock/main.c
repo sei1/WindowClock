@@ -317,7 +317,7 @@ ISR (TCA0_CMP0_vect) {
 	}else{//時刻を表示
 		dig1  = seg[min % 10];
 		dig2  = seg[(min / 10) % 10];
-		if(!(RTC_CNT % 2)) { //コロンの点滅
+		if(!(RTC_CNT % 2) || mode != MODE_CLOCK) { //コロンの点滅
 			dig3  = 0b00000110;
 		}else{
 			dig3  = 0b00000000;
