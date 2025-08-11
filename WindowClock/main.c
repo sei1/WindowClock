@@ -215,7 +215,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 3200;
+			wakeup = 4000;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -226,6 +226,7 @@ void sens_delay_ms (uint16_t num) {
 						//電圧の取得
 						get_v();
 						display_v = 200;
+						wakeup = 800; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -453,7 +454,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		wakeup = 800;
+		if(wakeup < 800) wakeup = 800;
 		return;
 	}
 
