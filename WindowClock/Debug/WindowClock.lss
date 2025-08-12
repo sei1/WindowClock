@@ -445,20 +445,20 @@ void sens_delay_ms (uint16_t num) {
 void seg_all_off (void) {
 
 	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
-	VPORTA_OUT = VPORTA_OUT & 0b00000001;
+	VPORTA_OUT &= 0b00000001;
  2ca:	81 b1       	in	r24, 0x01	; 1
  2cc:	81 70       	andi	r24, 0x01	; 1
  2ce:	81 b9       	out	0x01, r24	; 1
-	VPORTC_OUT = VPORTC_OUT & 0b11111110;
+	VPORTC_OUT &= 0b11111110;
  2d0:	89 b1       	in	r24, 0x09	; 9
  2d2:	8e 7f       	andi	r24, 0xFE	; 254
  2d4:	89 b9       	out	0x09, r24	; 9
 	//ダイナミック点灯用トランジスタも全てOFF
-	VPORTB_OUT = VPORTB_OUT & 0b11001111;
+	VPORTB_OUT &= 0b11001111;
  2d6:	85 b1       	in	r24, 0x05	; 5
  2d8:	8f 7c       	andi	r24, 0xCF	; 207
  2da:	85 b9       	out	0x05, r24	; 5
-	VPORTC_OUT = VPORTC_OUT & 0b11110001;
+	VPORTC_OUT &= 0b11110001;
  2dc:	89 b1       	in	r24, 0x09	; 9
  2de:	81 7f       	andi	r24, 0xF1	; 241
  2e0:	89 b9       	out	0x09, r24	; 9
@@ -964,7 +964,7 @@ ISR (TCA0_CMP0_vect) {
  5d6:	20 c0       	rjmp	.+64     	; 0x618 <__LOCK_REGION_LENGTH__+0x218>
 
 			case 0:
-			VPORTB_OUT = VPORTB_OUT | 0b00010000;
+			VPORTB_OUT |= 0b00010000;
  5d8:	85 b1       	in	r24, 0x05	; 5
  5da:	80 61       	ori	r24, 0x10	; 16
  5dc:	85 b9       	out	0x05, r24	; 5
@@ -976,7 +976,7 @@ ISR (TCA0_CMP0_vect) {
  5e0:	1b c0       	rjmp	.+54     	; 0x618 <__LOCK_REGION_LENGTH__+0x218>
 
 			case 1:
-			VPORTC_OUT = VPORTC_OUT | 0b00001000;
+			VPORTC_OUT |= 0b00001000;
  5e2:	89 b1       	in	r24, 0x09	; 9
  5e4:	88 60       	ori	r24, 0x08	; 8
  5e6:	89 b9       	out	0x09, r24	; 9
@@ -991,7 +991,7 @@ ISR (TCA0_CMP0_vect) {
  5f2:	12 c0       	rjmp	.+36     	; 0x618 <__LOCK_REGION_LENGTH__+0x218>
 
 			case 2:
-			VPORTB_OUT = VPORTB_OUT | 0b00100000;
+			VPORTB_OUT |= 0b00100000;
  5f4:	85 b1       	in	r24, 0x05	; 5
  5f6:	80 62       	ori	r24, 0x20	; 32
  5f8:	85 b9       	out	0x05, r24	; 5
@@ -1001,7 +1001,7 @@ ISR (TCA0_CMP0_vect) {
  5fc:	0d c0       	rjmp	.+26     	; 0x618 <__LOCK_REGION_LENGTH__+0x218>
 
 			case 3:
-			VPORTC_OUT = VPORTC_OUT | 0b00000100;
+			VPORTC_OUT |= 0b00000100;
  5fe:	89 b1       	in	r24, 0x09	; 9
  600:	84 60       	ori	r24, 0x04	; 4
  602:	89 b9       	out	0x09, r24	; 9
@@ -1013,7 +1013,7 @@ ISR (TCA0_CMP0_vect) {
  606:	08 c0       	rjmp	.+16     	; 0x618 <__LOCK_REGION_LENGTH__+0x218>
 
 			case 4:
-			VPORTC_OUT = VPORTC_OUT | 0b00000010;
+			VPORTC_OUT |= 0b00000010;
  608:	89 b1       	in	r24, 0x09	; 9
  60a:	82 60       	ori	r24, 0x02	; 2
  60c:	89 b9       	out	0x09, r24	; 9

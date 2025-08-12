@@ -263,11 +263,11 @@ void sens_delay_ms (uint16_t num) {
 void seg_all_off (void) {
 
 	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
-	VPORTA_OUT = VPORTA_OUT & 0b00000001;
-	VPORTC_OUT = VPORTC_OUT & 0b11111110;
+	VPORTA_OUT &= 0b00000001;
+	VPORTC_OUT &= 0b11111110;
 	//ダイナミック点灯用トランジスタも全てOFF
-	VPORTB_OUT = VPORTB_OUT & 0b11001111;
-	VPORTC_OUT = VPORTC_OUT & 0b11110001;
+	VPORTB_OUT &= 0b11001111;
+	VPORTC_OUT &= 0b11110001;
 }
 
 //モードを切り替える関数
@@ -286,7 +286,7 @@ void change_mode (uint8_t cmode) {
 ISR (TCA0_CMP0_vect) {
 
 	TCA0_SINGLE_CNT = 0;//カウントリセット
-	TCA0_SINGLE_INTFLAGS = 0b00010000; //割り込み要求フラグを解除
+	TCA0_SINGLE_INTFLAGS |= 0b00010000; //割り込み要求フラグを解除
 
 	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
@@ -374,32 +374,32 @@ ISR (TCA0_CMP0_vect) {
 		switch ( sel ) {
 
 			case 0:
-			VPORTB_OUT = VPORTB_OUT | 0b00010000;
+			VPORTB_OUT |= 0b00010000;
 			VPORTA_OUT = dig1;
 			//現状このドットは使用していないのでコメントアウト 使うときは有効化してください
 			//VPORTC_OUT = (dig1c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 1:
-			VPORTC_OUT = VPORTC_OUT | 0b00001000;
+			VPORTC_OUT |= 0b00001000;
 			VPORTA_OUT = dig2;
 			VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 2:
-			VPORTB_OUT = VPORTB_OUT | 0b00100000;
+			VPORTB_OUT |= 0b00100000;
 			VPORTA_OUT = dig3;
 			break;
 
 			case 3:
-			VPORTC_OUT = VPORTC_OUT | 0b00000100;
+			VPORTC_OUT |= 0b00000100;
 			VPORTA_OUT = dig4;
 			//現状このドットは使用していないのでコメントアウト 使うときは有効化してください
 			//VPORTC_OUT = (dig4c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 4:
-			VPORTC_OUT = VPORTC_OUT | 0b00000010;
+			VPORTC_OUT |= 0b00000010;
 			VPORTA_OUT = dig5;
 			VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
@@ -437,7 +437,7 @@ ISR (TCA0_CMP0_vect) {
 //外部割り込み PB0が変化したら 両方のエッジを検出する(片方エッジにしたいがそうするとなぜかスタンバイから復帰しない)
 ISR(PORTB_PORT_vect) {
 	
-	PORTB_INTFLAGS = PORTB_INTFLAGS | 0b00000010; //割り込み要求フラグ解除
+	PORTB_INTFLAGS |= 0b00000010; //割り込み要求フラグ解除
 
 	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
@@ -464,7 +464,7 @@ ISR(PORTB_PORT_vect) {
 //リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
-	RTC_INTFLAGS = RTC_INTFLAGS | 0b00000010;
+	RTC_INTFLAGS |= 0b00000010;
 
 	//時計を進める
 	if (mode == MODE_CLOCK && ++min >= 60) {
