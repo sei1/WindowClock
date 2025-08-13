@@ -78,6 +78,18 @@ PC3 … 7seg C3
              Switch In PB1 ━┃ 10       11 ┃━ PB0 IR Sensor In
                             ┗━━━━━━━━━━━━━┛
 
+
+***9時間の長時間スリープを実現するための手法***
+表示する時刻(算出時刻)と実際に計測し続ける時刻(保存時刻)を別ける
+
+起動時と時計合わせ時に保存時刻を設定する
+保存時刻をRTC割り込みで9時間毎に進める
+表示する時間はRTC_CNTを実時間に足し合わせた時間。これを算出時刻と呼ぶ
+赤外線センサーで起きた時に算出時刻を作り、TCA割り込みでCNTを監視し増加したら表示する時間を増やす
+起きる毎に算出時刻は都度生成し、スリープをまたいで保存したりはしない
+長時間スリープの電源節約以外のメリットとしてはプログラムが単純になることと
+仮に割り込みに不具合が生じ算出時刻が少しずれたとしても保存時刻は正確に9時間毎に加算されるため誤差の蓄積がないことが挙げられる
+
 */
 
 //---------------------------------
@@ -113,9 +125,17 @@ uint8_t seg[10] = {
 	0b11011010, 0b11111010, 0b01001110, 0b11111110, 0b11011110
 };
 
-//7セグLEDに表示させる4桁の数字
-uint8_t min  = 0;
-uint8_t hour = 0;
+//保存時刻
+uint8_t memory_min  = 0;
+uint8_t memory_hour = 0;
+
+//算出時刻 保存RTC_CNTを足し合わせた時刻
+uint8_t calc_min  = 0;
+uint8_t calc_hour = 0;
+
+//眠っている間に計測した時間を入れる変数
+uint8_t slept_min = 0;
+uint8_t slept_half_sec = 0;
 
 //起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
 uint16_t wakeup = 0;
@@ -146,6 +166,10 @@ uint8_t brightness = 3;
 
 //キャパシタ保護用放電動作中フラグ
 volatile uint8_t discharge = 0;
+
+//RTC_CNTを120で割った余りが0の時、算出時刻を1回だけ更新するためのフラグ
+//起動時や時計変更時のRTC_CNTが0でもこの条件を満たし、算出時刻を進めてしまうため初期値は既に更新したことを表す1とする
+static uint8_t calc_updated = 1;
 
 //---------------------------------
 // プログラム本文
@@ -236,7 +260,8 @@ void sens_delay_ms (uint16_t num) {
 					if(change_mode_after) {
 						change_mode_after = 0;
 					}else{
-						if(++hour >= 24) hour = 0;
+						if(++memory_hour >= 24) memory_hour = 0;
+						calc_hour = memory_hour;
 						_delay_ms(100);
 					}
 				break;
@@ -246,11 +271,13 @@ void sens_delay_ms (uint16_t num) {
 					if(change_mode_after) {
 						change_mode_after = 0;
 					}else{
-						if(++min >= 60) {
-							min = 0;
-							if(++hour >= 24) hour = 0;
-							_delay_ms(100);
+						if(++memory_min >= 60) {
+							memory_min = 0;
+							if(++memory_hour >= 24) memory_hour = 0;
 						}
+						calc_hour = memory_hour;
+						calc_min = memory_min;
+						_delay_ms(100);
 					}
 				break;
 			}
@@ -282,6 +309,14 @@ void change_mode (uint8_t cmode) {
 	}
 }
 
+//保存時刻を初期化
+void init_memory_clock (void) {
+	memory_hour = calc_hour;
+	memory_min = calc_min;
+	RTC_CNT = 0;
+	calc_updated = 1;
+}
+
 //TCA割り込み
 ISR (TCA0_CMP0_vect) {
 
@@ -295,7 +330,8 @@ ISR (TCA0_CMP0_vect) {
 		return;
 	}
 
-	static uint8_t sel = 0;
+	static uint8_t out_dig = 0;//発光させる桁
+	static uint8_t colon = 0;//点滅コロン
 	uint8_t dig1, dig2, dig3, dig4, dig5 = 0;
 	uint8_t dig2c, dig5c;
 	dig2c = dig5c = 0;
@@ -316,17 +352,13 @@ ISR (TCA0_CMP0_vect) {
 		dig2c = dig5c = 0b00000001;//ドット(小数点)
 
 	}else{//時刻を表示
-		dig1  = seg[min % 10];
-		dig2  = seg[(min / 10) % 10];
-		if(!(RTC_CNT % 2) || mode != MODE_CLOCK) { //コロンの点滅
-			dig3  = 0b00000110;
-		}else{
-			dig3  = 0b00000000;
-		}
-		dig4  = seg[hour % 10];
+		dig1  = seg[calc_min % 10];
+		dig2  = seg[(calc_min / 10) % 10];
+		dig3  = colon;
+		dig4  = seg[calc_hour % 10];
 
 		//dig5のみ0なら不点灯にする(ゼロサプレス)
-		uint8_t zerocheck = (hour / 10) % 10;
+		uint8_t zerocheck = (calc_hour / 10) % 10;
 		if(zerocheck == 0) {
 			dig5 = 0b00000000;
 		}else{
@@ -371,7 +403,7 @@ ISR (TCA0_CMP0_vect) {
 
 	//点灯実行
 	if(seg_on) {
-		switch ( sel ) {
+		switch ( out_dig ) {
 
 			case 0:
 			VPORTB_OUT |= 0b00010000;
@@ -409,9 +441,30 @@ ISR (TCA0_CMP0_vect) {
 
 
 	//5回に1回やること
-	if ( ++sel == 5 ) {
-		//selの0~5トグル動作
-		sel = 0;
+	if ( ++out_dig == 5 ) {
+		//out_digの0~5トグル動作
+		out_dig = 0;
+
+		//コロンの点滅動作
+		if(!(RTC_CNT % 2) || mode != MODE_CLOCK) { //コロンの点滅
+			colon = 0b00000110;
+		}else{
+			colon = 0b00000000;
+		}
+
+		//算出時刻を進める
+		if(!(RTC_CNT % 120)) {
+			if(calc_updated == 0) {
+				calc_updated = 1;
+				if(++calc_min >= 60) {
+					calc_hour++;
+					calc_min -= 60;
+				}
+				if(calc_hour >= 24) calc_hour -= 24;
+			}
+		}else{
+			calc_updated = 0;
+		}
 
 		//スリープへ向けwakeupを減らす
 		if(wakeup) wakeup--;
@@ -425,7 +478,8 @@ ISR (TCA0_CMP0_vect) {
 		}else{
 			if(++long_push > 1200) {
 				long_push = 0;
-				RTC_CNT = 0; //時刻設定をした後、秒数が0から始まるようにする
+				//時刻設定をした後、算出時刻を保存時刻に代入しカウントリセット
+				init_memory_clock();
 				change_mode(0);
 				change_mode_after = 1;
 			}
@@ -453,6 +507,24 @@ ISR(PORTB_PORT_vect) {
 			get_v();
 		}
 
+		if(!wakeup) {
+
+			//現在時刻を算出
+			//眠っている間に計測した秒数を分に換算
+			slept_min = RTC_CNT / 120;
+			slept_half_sec = RTC_CNT % 120;
+
+			calc_hour = memory_hour + slept_min / 60;
+			calc_min  = memory_min  + slept_min % 60;
+
+			if(calc_min >= 60) {
+				calc_hour++;
+				calc_min -= 60;
+			}
+
+			if(calc_hour >= 24) calc_hour -= 24;
+		}
+
 		//一定時間起き上がらせる
 		if(wakeup < 800) wakeup = 800;
 		return;
@@ -466,32 +538,28 @@ ISR(RTC_CNT_vect) {
 	RTC_CNT = 0;
 	RTC_INTFLAGS |= 0b00000010;
 
-	//時計を進める
-	if (mode == MODE_CLOCK && ++min >= 60) {
-		min = 0;
-		if(++hour >= 24) hour = 0;
+	//時計を9時間進める
+	if (mode == MODE_CLOCK) {
+		memory_hour += 9;
+		if(memory_hour >= 24) memory_hour -= 24;
 	}
 	
-	//1時間に1回やる処理
-	if(!min) {
-
-		if(!wakeup){
-			get_v();
-			//低電圧再起動処理 起きてる時にやると一瞬7セグがちらつくので起きてない時(厳密には起きてるカウントがされていない時)にやる
-			if(supply_v <= MIN_SUPPLY_V) {
-				//停止処理
-				//ウォッチドッグタイマを0.008秒で起動
-				wdt_enable(0b00000001);//0.008秒の場合、右4桁をデータシート上の8CLKのレジスタ設定値にする
-				//待機(しているあいだにウォッチドッグリセットがかかる)
-				_delay_ms(100);
-			}
-			//高電圧放電処理
-			if(supply_v >= MAX_SUPPLY_V) {
-				wakeup = 5200;
-				discharge = 1;
-			}
+	//日常点検作業
+	if(!wakeup){
+		get_v();
+		//低電圧再起動処理 起きてる時にやると一瞬7セグがちらつくので起きてない時(厳密には起きてるカウントがされていない時)にやる
+		if(supply_v <= MIN_SUPPLY_V) {
+			//停止処理
+			//ウォッチドッグタイマを0.008秒で起動
+			wdt_enable(0b00000001);//0.008秒の場合、右4桁をデータシート上の8CLKのレジスタ設定値にする
+			//待機(しているあいだにウォッチドッグリセットがかかる)
+			_delay_ms(100);
 		}
-
+		//高電圧放電処理
+		if(supply_v >= MAX_SUPPLY_V) {
+			wakeup = 5200;
+			discharge = 1;
+		}
 	}
 
 	return;
@@ -533,7 +601,8 @@ int main(void) {
 	RTC_CTRLA   = 0b11110001; //ｽﾀﾝﾊﾞｲ休止動作でもRTC許可 16384分周=0.5秒カウント RTC許可
 
 	//割り込みたい間隔の秒数をx2-1して代入
-	RTC_CMP = 60 * 2 - 1;
+	RTC_CMP = (uint16_t) 32400 * 2 - 1; //32400秒=540分=9時間 16ビット最大値以内で表せる極力長い時間を代入するとこの値になる
+	RTC_CNT = 0;
 
 	//タイマーA
 	TCA0_SINGLE_CTRLA = 0b00001101; //1024分周 動作許可
@@ -548,6 +617,9 @@ int main(void) {
 	VREF_CTRLA = 0b00010000; //内部基準電圧 1.1V
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
+
+	//保存時刻の初期化
+	init_memory_clock();
 
 	//少し待機
 	_delay_ms(5);
