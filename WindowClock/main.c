@@ -133,10 +133,6 @@ uint8_t memory_hour = 0;
 uint8_t calc_min  = 0;
 uint8_t calc_hour = 0;
 
-//眠っている間に計測した時間を入れる変数
-uint8_t slept_min = 0;
-uint8_t slept_half_sec = 0;
-
 //起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
 uint16_t wakeup = 0;
 
@@ -510,9 +506,9 @@ ISR(PORTB_PORT_vect) {
 		if(!wakeup) {
 
 			//現在時刻を算出
+			
 			//眠っている間に計測した秒数を分に換算
-			slept_min = RTC_CNT / 120;
-			slept_half_sec = RTC_CNT % 120;
+			uint16_t slept_min = RTC_CNT / 120;
 
 			calc_hour = memory_hour + slept_min / 60;
 			calc_min  = memory_min  + slept_min % 60;
