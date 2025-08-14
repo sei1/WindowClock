@@ -1,7 +1,7 @@
 ﻿/*
  * ATtiny1616
  * F_CPU=250000UL
- * 1MHz内部クロック(16MHz 16分周)
+ * 2MHz内部クロック(16MHz 8分周)
  *
  * Created: 2025/05/18
  * Author : SEIICHIRO SASAKI
@@ -96,7 +96,7 @@ PC3 … 7seg C3
 // 定義とインクルード
 //---------------------------------
 
-#define   F_CPU 1000000UL //16MHzを16分周
+#define   F_CPU 2000000UL //16MHzを16分周
 
 #include <util/delay.h>
 #include <avr/interrupt.h>
@@ -151,14 +151,14 @@ float supply_v = 0.0;
 float  solar_v = 0.0;
 
 //MODE_CLOCKでボタンを押した時(非長押し)、一時的に電圧を表示するフラグ。wakeupと同様にタイマーでデクリメントしていき0になったら表示を戻す
-uint8_t display_v = 0;
+uint16_t display_v = 0;
 
 //起きたのにまだ電圧測定してないの？的なフラグ
 //寝る前に1をセットして起きたら電圧を測定し0に戻す。0なら以後電圧を測定しない。この動作で起きた時に1回だけ電圧測定する動作になる
 uint8_t yet_v = 1;
 
-//7セグの明るさレベル 3段階 100% 50% 25%
-uint8_t brightness = 3;
+//7セグの明るさレベル 6段階 16.67% 25% 30% 50% 75% 100%
+uint8_t brightness = 6;
 
 //キャパシタ保護用放電動作中フラグ
 volatile uint8_t discharge = 0;
@@ -228,9 +228,15 @@ void get_v (void) {
 
 	//7セグの明るさ設定
 	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
-	if(solar_v > 1.2 || discharge) {
-		brightness = 3;
+	if(solar_v > 1.8 || discharge) {
+		brightness = 6;
+	}else if(solar_v > 1.2) {
+		brightness = 5;
+	}else if(solar_v > 0.8) {
+		brightness = 4;
 	}else if(solar_v > 0.5) {
+		brightness = 3;
+	}else if(solar_v > 0.3) {
 		brightness = 2;
 	}else{
 		brightness = 1;
@@ -244,7 +250,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 4000;
+			wakeup = 8000;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -254,8 +260,8 @@ void sens_delay_ms (uint16_t num) {
 					}else{
 						//電圧の取得
 						get_v();
-						display_v = 200;
-						wakeup = 800; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						display_v = 800;
+						wakeup = 1600; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -395,11 +401,11 @@ ISR (TCA0_CMP0_vect) {
 	//点滅カウンター
 	static uint16_t wink = 0;
 	if(mode == MODE_HOUR_SET) {
-		if(++wink < 512) dig4 = dig5 = 0b00000000;
-		else if (wink > 1023) wink = 0;
+		if(++wink < 1000) dig4 = dig5 = 0b00000000;
+		else if (wink > 2000) wink = 0;
 	}else if(mode == MODE_MIN_SET) {
-		if(++wink < 512) dig1 = dig2 = 0b00000000;
-		else if (wink > 1023) wink = 0;
+		if(++wink < 1000) dig1 = dig2 = 0b00000000;
+		else if (wink > 2000) wink = 0;
 	}else{
 		wink = 0;
 	}
@@ -410,25 +416,51 @@ ISR (TCA0_CMP0_vect) {
 
 	//明るさ設定値に応じた点灯判定
 	uint8_t seg_on = 0; //1を入れるとセグがONになる
-	static uint8_t bn_pwm_count = 0; //7セグを間欠で点灯させるために0～7までを繰り返し数えるカウンター
+	static uint8_t bn_pwm_count = 1; //7セグを間欠で点灯させるために0～12までを繰り返し数えるカウンター
 
-	if(++bn_pwm_count > 7) bn_pwm_count = 0;
+	if(++bn_pwm_count >= 12) bn_pwm_count = 1;
 
-	if(brightness == 1) {
-		if(!(bn_pwm_count % 4)) { //bn_pwm_countが0、4のタイミングで点灯
+	//間欠点灯で明るさを調整
+	switch (brightness) {
+
+		case 1: //16.67% bn_pwm_countが6,12のタイミングで点灯
+			if(!(bn_pwm_count % 6)) {
+				seg_on = 1;
+			}
+		break;
+
+		case 2: //25% bn_pwm_countが4,8,12のタイミングで点灯
+			if(bn_pwm_count % 4) {
+				seg_on = 1;
+			}
+		break;
+
+		case 3: //30% bn_pwm_countが3,6,9,12のタイミングで点灯
+			if(bn_pwm_count % 3) {
+				seg_on = 1;
+			}
+		break;
+
+		case 4: //50% bn_pwm_countが2,4,6,8,10,12のタイミングで点灯
+			if(bn_pwm_count % 2) {
+				seg_on = 1;
+			}
+		break;
+
+		case 5: //75% bn_pwm_countが2,4,6,8,10,12のタイミングで点灯
+			if(bn_pwm_count % 2 || bn_pwm_count == 3  || bn_pwm_count == 7  || bn_pwm_count == 11) {
+				seg_on = 1;
+			}
+		break;
+
+		case 6: //100% bn_pwm_countがいくつでも全てのタイミングで点灯
 			seg_on = 1;
-		}
-	}else if(brightness == 2) {
-		if(bn_pwm_count % 2) { //bn_pwm_countが1、3、5、7のタイミングで点灯
-			seg_on = 1;
-		}
-	}else if(brightness == 3) { //bn_pwm_countがいくつでも全てのタイミングで点灯
-		seg_on = 1;
+		break;
 	}
 
 	//点灯実行
 	if(seg_on) {
-		switch ( out_dig ) {
+		switch (out_dig) {
 
 			case 0:
 			VPORTB_OUT |= 0b00010000;
@@ -563,7 +595,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 800) wakeup = 800;
+		if(wakeup < 1600) wakeup = 1600;
 		return;
 	}
 
@@ -594,7 +626,7 @@ ISR(RTC_CNT_vect) {
 		}
 		//高電圧放電処理
 		if(supply_v >= MAX_SUPPLY_V) {
-			wakeup = 5200;
+			wakeup = 10400;
 			discharge = 1;
 		}
 	}
@@ -610,7 +642,7 @@ int main(void) {
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
-	CLKCTRL_MCLKCTRLB = 0b00000111; //16分周
+	CLKCTRL_MCLKCTRLB = 0b00000101; //8分周
 
 	//入出力モード設定
 	VPORTA_DIR = 0b11111111; //ポートA 
@@ -671,7 +703,7 @@ int main(void) {
 				break;
 			}
 			sens_delay_ms(3000);
-			wakeup = 5200;
+			wakeup = 10400;
 		}
 
 		if(!wakeup) {
