@@ -167,6 +167,15 @@ volatile uint8_t discharge = 0;
 //起動時や時計変更時のRTC_CNTが0でもこの条件を満たし、算出時刻を進めてしまうため初期値は既に更新したことを表す1とする
 static uint8_t calc_updated = 1;
 
+//12時間表記をするか。1ならする。0なら24時間表記。デフォルトは7セグの消費電力を削減するために12時間表記
+uint8_t system12 = 1;
+
+//3回連続で時刻合わせが行われたら24時間表記にする そのためのカウンター
+uint8_t s24count = 0;
+
+//起動後まだ時刻を設定していないフラグ
+uint8_t unset = 1;
+
 //---------------------------------
 // プログラム本文
 //---------------------------------
@@ -307,8 +316,13 @@ void change_mode (uint8_t cmode) {
 
 //保存時刻を初期化
 void init_memory_clock (void) {
-	memory_hour = calc_hour;
-	memory_min = calc_min;
+	if(unset) { //未設定なら00:00で初期化
+		memory_hour = calc_hour = 0;
+		memory_min = calc_min = 0;
+	}else{
+		memory_hour = calc_hour;
+		memory_min = calc_min;
+	}
 	RTC_CNT = 0;
 	calc_updated = 1;
 }
@@ -347,14 +361,29 @@ ISR (TCA0_CMP0_vect) {
 		dig5  = seg[(slv / 10) % 10];
 		dig2c = dig5c = 0b00000001;//ドット(小数点)
 
+	}else if(unset && mode == MODE_CLOCK) {//時計未設定なら全てハイフンで上書き
+		dig1 = dig2 = dig4 = dig5 = 0b10000000;
+		dig3 = 0b00000110;
+
 	}else{//時刻を表示
+
+		//12時間表記設定と24時間表記設定で表示を切り替える
+		uint8_t display_hour = 0;
+		if(system12) {
+			if(!calc_hour) display_hour = 12; //0時を12時と表記
+			else if (calc_hour > 12) display_hour = calc_hour - 12; //13時以降を1時、2時…と表す
+			else display_hour = calc_hour;
+		}else{
+			display_hour = calc_hour;
+		}
+
 		dig1  = seg[calc_min % 10];
 		dig2  = seg[(calc_min / 10) % 10];
 		dig3  = colon;
-		dig4  = seg[calc_hour % 10];
+		dig4  = seg[display_hour % 10];
 
 		//dig5のみ0なら不点灯にする(ゼロサプレス)
-		uint8_t zerocheck = (calc_hour / 10) % 10;
+		uint8_t zerocheck = (display_hour / 10) % 10;
 		if(zerocheck == 0) {
 			dig5 = 0b00000000;
 		}else{
@@ -478,6 +507,18 @@ ISR (TCA0_CMP0_vect) {
 				init_memory_clock();
 				change_mode(0);
 				change_mode_after = 1;
+
+				unset = 0; //時刻未設定フラグを折る
+				//スリープを挟まず3回連続で時刻合わせを行った場合は24時間表記に切り替える
+				if(mode == MODE_HOUR_SET) {
+					s24count++;
+					if(s24count >= 3) {
+						s24count = 0;
+						system12 = 0;
+					}else{
+						system12 = 1;
+					}
+				}
 			}
 		}
 	}
@@ -614,9 +655,6 @@ int main(void) {
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
-	//保存時刻の初期化
-	init_memory_clock();
-
 	//少し待機
 	_delay_ms(5);
 
@@ -642,6 +680,7 @@ int main(void) {
 			change_mode(MODE_CLOCK);
 			display_v = 0;
 			yet_v = 1;
+			s24count = 0;
 			//寝る
 			sleep_mode();
 		}
