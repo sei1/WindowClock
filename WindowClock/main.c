@@ -1,7 +1,7 @@
 ﻿/*
  * ATtiny1616
  * F_CPU=250000UL
- * 2MHz内部クロック(16MHz 8分周)
+ * 1MHz内部クロック(16MHz 16分周)
  *
  * Created: 2025/05/18
  * Author : SEIICHIRO SASAKI
@@ -96,7 +96,7 @@ PC3 … 7seg C3
 // 定義とインクルード
 //---------------------------------
 
-#define   F_CPU 2000000UL //16MHzを16分周
+#define   F_CPU 1000000UL //16MHzを16分周
 
 #include <util/delay.h>
 #include <avr/interrupt.h>
@@ -151,7 +151,7 @@ float supply_v = 0.0;
 float  solar_v = 0.0;
 
 //MODE_CLOCKでボタンを押した時(非長押し)、一時的に電圧を表示するフラグ。wakeupと同様にタイマーでデクリメントしていき0になったら表示を戻す
-uint16_t display_v = 0;
+uint8_t display_v = 0;
 
 //起きたのにまだ電圧測定してないの？的なフラグ
 //寝る前に1をセットして起きたら電圧を測定し0に戻す。0なら以後電圧を測定しない。この動作で起きた時に1回だけ電圧測定する動作になる
@@ -175,6 +175,20 @@ uint8_t s24count = 0;
 
 //起動後まだ時刻を設定していないフラグ
 uint8_t unset = 1;
+
+//7セグに電圧を表示用するために使う変数
+uint8_t v_dig1 = 0;
+uint8_t v_dig2 = 0;
+uint8_t v_dig4 = 0;
+uint8_t v_dig5 = 0;
+
+//
+uint8_t old_calc_min = 255;
+uint8_t old_calc_hour = 255;
+uint8_t old_dig1 = 0;
+uint8_t old_dig2 = 0;
+uint8_t old_dig4 = 0;
+uint8_t old_dig5 = 0;
 
 //---------------------------------
 // プログラム本文
@@ -226,6 +240,8 @@ void get_v (void) {
 	//太陽電池電圧を算出
 	solar_v = x * 1.1 / y;
 
+
+
 	//7セグの明るさ設定
 	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
 	if(solar_v > 1.8 || discharge) {
@@ -241,6 +257,14 @@ void get_v (void) {
 	}else{
 		brightness = 1;
 	}
+
+	//電圧を7セグに表示する準備 ここで行っておくことで計算が1回で済みTCA割り込みの動作が軽快になる
+	uint8_t spv = supply_v * 10;
+	uint8_t slv =  solar_v * 10;
+	v_dig1  = seg[spv % 10];
+	v_dig2  = seg[(spv / 10) % 10];
+	v_dig4  = seg[slv % 10];
+	v_dig5  = seg[(slv / 10) % 10];
 }
 
 //ボタン操作を受け付けながら待機する関数
@@ -250,7 +274,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 8000;
+			wakeup = 5000;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -260,8 +284,8 @@ void sens_delay_ms (uint16_t num) {
 					}else{
 						//電圧の取得
 						get_v();
-						display_v = 800;
-						wakeup = 1600; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						display_v = 255;
+						wakeup = 1000; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -358,13 +382,11 @@ ISR (TCA0_CMP0_vect) {
 
 	//太陽電池の発電電圧とキャパシタの電圧を表示
 	if(display_v && mode == MODE_CLOCK) {
-		uint8_t spv = supply_v * 10;
-		uint8_t slv =  solar_v * 10;
-		dig1  = seg[spv % 10];
-		dig2  = seg[(spv / 10) % 10];
+		dig1  = v_dig1;
+		dig2  = v_dig2;
 		dig3  = 0b00000000;
-		dig4  = seg[slv % 10];
-		dig5  = seg[(slv / 10) % 10];
+		dig4  = v_dig4;
+		dig5  = v_dig5;
 		dig2c = dig5c = 0b00000001;//ドット(小数点)
 
 	}else if(unset && mode == MODE_CLOCK) {//時計未設定なら全てハイフンで上書き
@@ -373,39 +395,53 @@ ISR (TCA0_CMP0_vect) {
 
 	}else{//時刻を表示
 
-		//12時間表記設定と24時間表記設定で表示を切り替える
-		uint8_t display_hour = 0;
-		if(system12) {
-			if(!calc_hour) display_hour = 12; //0時を12時と表記
-			else if (calc_hour > 12) display_hour = calc_hour - 12; //13時以降を1時、2時…と表す
-			else display_hour = calc_hour;
+		//時刻が更新されていれば表示を刷新するための計算を行う。更新されていなければ前回表示したものをそのまま表示
+		if(old_calc_min != calc_min || old_calc_hour != calc_hour) {
+			old_calc_min = calc_min;
+			old_calc_hour = calc_hour;
+
+			//12時間表記設定と24時間表記設定で表示を切り替える
+			uint8_t display_hour = 0;
+			if(system12) {
+				if(!calc_hour) display_hour = 12; //0時を12時と表記
+				else if (calc_hour > 12) display_hour = calc_hour - 12; //13時以降を1時、2時…と表す
+				else display_hour = calc_hour;
+			}else{
+				display_hour = calc_hour;
+			}
+
+			old_dig1 = dig1  = seg[calc_min % 10];
+			old_dig2 = dig2  = seg[(calc_min / 10) % 10];
+			old_dig4 = dig4  = seg[display_hour % 10];
+
+			//dig5のみ0なら不点灯にする(ゼロサプレス)
+			uint8_t zerocheck = (display_hour / 10) % 10;
+			if(zerocheck == 0) {
+				old_dig5 = dig5 = 0b00000000;
+			}else{
+				old_dig5 = dig5   = seg[zerocheck];
+			}
+
 		}else{
-			display_hour = calc_hour;
+			dig1 = old_dig1;
+			dig2 = old_dig2;
+			dig4 = old_dig4;
+			dig5 = old_dig5;
 		}
 
-		dig1  = seg[calc_min % 10];
-		dig2  = seg[(calc_min / 10) % 10];
 		dig3  = colon;
-		dig4  = seg[display_hour % 10];
 
-		//dig5のみ0なら不点灯にする(ゼロサプレス)
-		uint8_t zerocheck = (display_hour / 10) % 10;
-		if(zerocheck == 0) {
-			dig5 = 0b00000000;
-		}else{
-			dig5   = seg[zerocheck];
-		}
 	}
 
 	//時刻設定時の点滅演出
 	//点滅カウンター
 	static uint16_t wink = 0;
 	if(mode == MODE_HOUR_SET) {
-		if(++wink < 1000) dig4 = dig5 = 0b00000000;
-		else if (wink > 2000) wink = 0;
+		if(++wink < 512) dig4 = dig5 = 0b00000000;
+		else if (wink > 1023) wink = 0;
 	}else if(mode == MODE_MIN_SET) {
-		if(++wink < 1000) dig1 = dig2 = 0b00000000;
-		else if (wink > 2000) wink = 0;
+		if(++wink < 512) dig1 = dig2 = 0b00000000;
+		else if (wink > 1023) wink = 0;
 	}else{
 		wink = 0;
 	}
@@ -418,37 +454,41 @@ ISR (TCA0_CMP0_vect) {
 	uint8_t seg_on = 0; //1を入れるとセグがONになる
 	static uint8_t bn_pwm_count = 1; //7セグを間欠で点灯させるために0～12までを繰り返し数えるカウンター
 
-	if(++bn_pwm_count >= 12) bn_pwm_count = 1;
+	if(++bn_pwm_count > 24) bn_pwm_count = 1;
 
 	//間欠点灯で明るさを調整
 	switch (brightness) {
 
-		case 1: //16.67% bn_pwm_countが6,12のタイミングで点灯
-			if(!(bn_pwm_count % 6)) {
+		case 1: //12.5% bn_pwm_countが8,16,24のタイミングで点灯
+			if(
+				bn_pwm_count == 8  ||
+				bn_pwm_count == 16 ||
+				bn_pwm_count == 24
+			) {
 				seg_on = 1;
 			}
 		break;
 
-		case 2: //25% bn_pwm_countが4,8,12のタイミングで点灯
+		case 2: //16.67% bn_pwm_countが6,12,18,24のタイミングで点灯
+			if(bn_pwm_count % 6) {
+				seg_on = 1;
+			}
+		break;
+
+		case 3: //25% bn_pwm_countが4,8,12,16,20,24のタイミングで点灯
 			if(bn_pwm_count % 4) {
 				seg_on = 1;
 			}
 		break;
 
-		case 3: //30% bn_pwm_countが3,6,9,12のタイミングで点灯
+		case 4: //33.33% bn_pwm_countが3,6,9,12,15,18,21,24のタイミングで点灯
 			if(bn_pwm_count % 3) {
 				seg_on = 1;
 			}
 		break;
 
-		case 4: //50% bn_pwm_countが2,4,6,8,10,12のタイミングで点灯
+		case 5: //50% bn_pwm_countが2,4,6,8,10,12,14,16,18,20,22,24のタイミングで点灯
 			if(bn_pwm_count % 2) {
-				seg_on = 1;
-			}
-		break;
-
-		case 5: //75% bn_pwm_countが2,4,6,8,10,12のタイミングで点灯
-			if(bn_pwm_count % 2 || bn_pwm_count == 3  || bn_pwm_count == 7  || bn_pwm_count == 11) {
 				seg_on = 1;
 			}
 		break;
@@ -472,7 +512,7 @@ ISR (TCA0_CMP0_vect) {
 			case 1:
 			VPORTC_OUT |= 0b00001000;
 			VPORTA_OUT = dig2;
-			VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			if(display_v) VPORTC_OUT = (dig2c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 			case 2:
@@ -490,7 +530,7 @@ ISR (TCA0_CMP0_vect) {
 			case 4:
 			VPORTC_OUT |= 0b00000010;
 			VPORTA_OUT = dig5;
-			VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			if(display_v) VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
 			break;
 
 		}
@@ -595,7 +635,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 1600) wakeup = 1600;
+		if(wakeup < 1000) wakeup = 1000;
 		return;
 	}
 
@@ -626,7 +666,7 @@ ISR(RTC_CNT_vect) {
 		}
 		//高電圧放電処理
 		if(supply_v >= MAX_SUPPLY_V) {
-			wakeup = 10400;
+			wakeup = 7000;
 			discharge = 1;
 		}
 	}
@@ -642,7 +682,7 @@ int main(void) {
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_MCLKCTRLA = 0b00000000; //16/20 MHz内部オシレータ
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
-	CLKCTRL_MCLKCTRLB = 0b00000101; //8分周
+	CLKCTRL_MCLKCTRLB = 0b00000111; //16分周
 
 	//入出力モード設定
 	VPORTA_DIR = 0b11111111; //ポートA 
@@ -703,7 +743,7 @@ int main(void) {
 				break;
 			}
 			sens_delay_ms(3000);
-			wakeup = 10400;
+			wakeup = 7000;
 		}
 
 		if(!wakeup) {
@@ -713,6 +753,7 @@ int main(void) {
 			display_v = 0;
 			yet_v = 1;
 			s24count = 0;
+			old_calc_min = old_calc_hour = 255;
 			//寝る
 			sleep_mode();
 		}
