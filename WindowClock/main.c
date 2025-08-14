@@ -326,10 +326,9 @@ void seg_all_off (void) {
 
 	//他のセグメントを一瞬でも光らせないようPA1~7までとPC0を一度全て消灯
 	VPORTA_OUT &= 0b00000001;
-	VPORTC_OUT &= 0b11111110;
+	VPORTC_OUT &= 0b11110000; //PC1～3はダイナミック点灯用トランジスタ。これらもOFF
 	//ダイナミック点灯用トランジスタも全てOFF
 	VPORTB_OUT &= 0b11001111;
-	VPORTC_OUT &= 0b11110001;
 }
 
 //モードを切り替える関数
@@ -397,6 +396,7 @@ ISR (TCA0_CMP0_vect) {
 
 		//時刻が更新されていれば表示を刷新するための計算を行う。更新されていなければ前回表示したものをそのまま表示
 		if(old_calc_min != calc_min || old_calc_hour != calc_hour) {
+			//これまでの値を古い値を格納する変数に移し替える
 			old_calc_min = calc_min;
 			old_calc_hour = calc_hour;
 
@@ -470,7 +470,12 @@ ISR (TCA0_CMP0_vect) {
 		break;
 
 		case 2: //16.67% bn_pwm_countが6,12,18,24のタイミングで点灯
-			if(bn_pwm_count % 6) {
+			if(
+				bn_pwm_count == 6  ||
+				bn_pwm_count == 12 ||
+				bn_pwm_count == 18 ||
+				bn_pwm_count == 24
+			) {
 				seg_on = 1;
 			}
 		break;
@@ -538,29 +543,34 @@ ISR (TCA0_CMP0_vect) {
 
 
 	//5回に1回やること
-	if ( ++out_dig == 5 ) {
+	if (++out_dig == 5) {
 		//out_digの0~5トグル動作
 		out_dig = 0;
 
 		//コロンの点滅動作
-		if(!(RTC_CNT % 2) || mode != MODE_CLOCK) { //コロンの点滅
+		if(!(RTC_CNTL & 0b00000001) || mode != MODE_CLOCK) { //コロンの点滅
 			colon = 0b00000110;
 		}else{
 			colon = 0b00000000;
 		}
 
 		//算出時刻を進める
-		if(!(RTC_CNT % 120)) {
-			if(calc_updated == 0) {
-				calc_updated = 1;
-				if(++calc_min >= 60) {
-					calc_hour++;
-					calc_min -= 60;
+		//old_rtc_cntにカウント値を保存して最新のカウント値と比較し、1秒に1回だけ剰余演算で判定する
+		static uint16_t old_rtc_cnt;
+		if(old_rtc_cnt != RTC_CNT) {
+			old_rtc_cnt = RTC_CNT;
+			if(!(RTC_CNT % 120)) { 
+				if(calc_updated == 0) {
+					calc_updated = 1;
+					if(++calc_min >= 60) {
+						calc_hour++;
+						calc_min -= 60;
+					}
+					if(calc_hour >= 24) calc_hour -= 24;
 				}
-				if(calc_hour >= 24) calc_hour -= 24;
+			}else{
+				calc_updated = 0;
 			}
-		}else{
-			calc_updated = 0;
 		}
 
 		//スリープへ向けwakeupを減らす
