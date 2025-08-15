@@ -555,8 +555,8 @@ ISR (TCA0_CMP0_vect) {
 		}
 
 		//算出時刻を進める
-		//old_rtc_cntにカウント値を保存して最新のカウント値と比較し、1秒に1回だけ剰余演算で判定する
-		static uint16_t old_rtc_cnt;
+		//old_rtc_cntにカウント値を保存して最新のカウント値と比較し、0.5秒に1回だけ剰余演算で判定する
+		static uint16_t old_rtc_cnt = 0;
 		if(old_rtc_cnt != RTC_CNT) {
 			old_rtc_cnt = RTC_CNT;
 			if(!(RTC_CNT % 120)) { 
@@ -640,8 +640,9 @@ ISR(PORTB_PORT_vect) {
 				calc_hour++;
 				calc_min -= 60;
 			}
-
+			
 			if(calc_hour >= 24) calc_hour -= 24;
+			calc_updated = 1;
 		}
 
 		//一定時間起き上がらせる
