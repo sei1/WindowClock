@@ -521,8 +521,10 @@ ISR (TCA0_CMP0_vect) {
 			break;
 
 			case 2:
-			VPORTB_OUT |= 0b00100000;
-			VPORTA_OUT = dig3;
+			if(dig3) { //電力消費削減のため、コロンが消灯している時はカソード側トランジスタも開けない
+				VPORTB_OUT |= 0b00100000;
+				VPORTA_OUT = dig3;
+			}
 			break;
 
 			case 3:
@@ -533,9 +535,11 @@ ISR (TCA0_CMP0_vect) {
 			break;
 
 			case 4:
-			VPORTC_OUT |= 0b00000010;
-			VPORTA_OUT = dig5;
-			if(display_v) VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			if(dig5) { //電力消費削減のため、dig5がゼロサプレスされていればカソード側トランジスタも開けない
+				VPORTC_OUT |= 0b00000010;
+				VPORTA_OUT = dig5;
+				if(display_v) VPORTC_OUT = (dig5c  & 0b00000001) | (VPORTC_OUT & 0b11111110);//PC1～7に影響を与えないようマスク処理をしてPC0に値を代入
+			}
 			break;
 
 		}
