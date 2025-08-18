@@ -176,6 +176,12 @@ uint8_t s24count = 0;
 //起動後まだ時刻を設定していないフラグ
 uint8_t unset = 1;
 
+//寝た直後に起きないように寝た瞬間のカウント値を保存しておき次回起きる際に比較するための変数
+uint16_t last_rtc_cnt = 0;
+
+//起きたが何もせずすぐに寝る場合に立てるフラグ
+uint8_t do_nothing = 0;
+
 //7セグに電圧を表示用するために使う変数
 uint8_t v_dig1 = 0;
 uint8_t v_dig2 = 0;
@@ -274,7 +280,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 5000;
+			wakeup = 4000;
 		
 			switch (mode) {
 				case MODE_CLOCK:
@@ -285,7 +291,7 @@ void sens_delay_ms (uint16_t num) {
 						//電圧の取得
 						get_v();
 						display_v = 255;
-						wakeup = 1000; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						wakeup = 800; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -618,11 +624,19 @@ ISR(PORTB_PORT_vect) {
 
 	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
+		do_nothing = 1;
 		return;
 	}
 
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
+
+		if((RTC_CNT - last_rtc_cnt) < 2) {
+			do_nothing = 1;
+			return;
+		}
+
+		do_nothing = 0;
 
 		//まず電圧測定する
 		if(yet_v) {
@@ -650,7 +664,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 1000) wakeup = 1000;
+		if(wakeup < 800) wakeup = 800;
 		return;
 	}
 
@@ -681,7 +695,7 @@ ISR(RTC_CNT_vect) {
 		}
 		//高電圧放電処理
 		if(supply_v >= MAX_SUPPLY_V) {
-			wakeup = 7000;
+			wakeup = 6000;
 			discharge = 1;
 		}
 	}
@@ -758,11 +772,14 @@ int main(void) {
 				break;
 			}
 			sens_delay_ms(3000);
-			wakeup = 7000;
+			wakeup = 6000;
 		}
 
 		if(!wakeup) {
 			//寝る準備
+			if(!do_nothing) {
+				last_rtc_cnt = RTC_CNT;
+			}
 			seg_all_off();
 			change_mode(MODE_CLOCK);
 			display_v = 0;
