@@ -159,9 +159,6 @@ uint8_t s24count = 0;
 //寝た直後に起きないように寝た瞬間のカウント値を保存しておき次回起きる際に比較するための変数
 uint16_t last_rtc_cnt = 0;
 
-//起きたが何もせずすぐに寝る場合に立てるフラグ
-uint8_t do_nothing = 0;
-
 //7セグに電圧を表示用するために使う変数
 uint8_t v_dig1 = 0;
 uint8_t v_dig2 = 0;
@@ -197,6 +194,8 @@ void get_v (void) {
 	// 基準電圧1.1V / 電源電圧 を10bit(1024段階)で測定
 	ADC0_MUXPOS = 0b00011101; //基準電圧
 
+	ADC0_CTRLA = 0b00000001; //ADC Enable
+
 	ADC0_COMMAND = 1;//AD変換開始
 	while(ADC0_COMMAND);
 	ADC0_COMMAND = 0;//AD変換終了
@@ -218,6 +217,8 @@ void get_v (void) {
 	while(ADC0_COMMAND);
 	ADC0_COMMAND = 0;//AD変換終了
 
+	ADC0_CTRLA = 0b00000000; //ADC Disable
+
 	x = ADC0_RES;
 
 	//PB1のプルアップを有効に戻す
@@ -229,13 +230,13 @@ void get_v (void) {
 
 	//7セグの明るさ設定
 	//太陽電池の電圧によって周囲の明るさを判定し7セグの明るさを変化させる
-	if(solar_v > 1.8 || discharge) {
+	if(solar_v > 2.0 || discharge) {
 		brightness = 6;
-	}else if(solar_v > 1.2) {
+	}else if(solar_v > 1.4) {
 		brightness = 5;
-	}else if(solar_v > 0.8) {
+	}else if(solar_v > 0.9) {
 		brightness = 4;
-	}else if(solar_v > 0.5) {
+	}else if(solar_v > 0.6) {
 		brightness = 3;
 	}else if(solar_v > 0.3) {
 		brightness = 2;
@@ -471,6 +472,7 @@ ISR (TCA0_CMP0_vect) {
 	}
 
 	//点灯実行
+	//if(0) { //デバッグ用
 	if(seg_on) {
 		switch (out_dig) {
 
@@ -568,20 +570,16 @@ ISR(PORTB_PORT_vect) {
 
 	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
 	if(!(VPORTB_IN & PIN0_bm)) {
-		do_nothing = 1;
 		return;
 	}
 
 	//赤外線センサー PB0がHighだったら一定時間起き上がらせる
 	if(VPORTB_IN & PIN0_bm) {
 
-		//前回寝てから2カウント以内だったら何もせずに再び寝る
-		if((RTC_CNT - last_rtc_cnt) < 2) {
-			do_nothing = 1;
+		//前回寝てから3カウント以内だったら何もせずに再び寝る
+		if(!wakeup && (RTC_CNT - last_rtc_cnt) < 3) {
 			return;
 		}
-
-		do_nothing = 0;
 
 		//まず電圧測定する
 		if(yet_v) {
@@ -679,7 +677,7 @@ int main(void) {
 	TCA0_SINGLE_INTCTRL = 0b00010000; //CMP0割り込み許可
 
 	//ADC設定
-	ADC0_CTRLA = 0b00000001; //ADC Enable
+	ADC0_CTRLA = 0b00000000; //ADC Disable
 	ADC0_CTRLB = 0b00000000; //累積なし
 	ADC0_CTRLC = 0b01010101; //VREF = VDD, プリスケーラ1/64
 	VREF_CTRLA = 0b00010000; //内部基準電圧 1.1V
@@ -705,11 +703,10 @@ int main(void) {
 			wakeup = 5200;
 		}
 
-		if(!wakeup) {
+		if(wakeup) {
+			last_rtc_cnt = RTC_CNT;
+		}else{
 			//寝る準備
-			if(!do_nothing) {
-				last_rtc_cnt = RTC_CNT;
-			}
 			seg_all_off();
 			change_mode(MODE_CLOCK);
 			display_v = 0;
