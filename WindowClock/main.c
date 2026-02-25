@@ -13,10 +13,10 @@ ACTIVE = DIS
 LVL = BODLEVEL0
 SAMPFREQ = 1KHZ
 SLEEP = DIS
-FREQSEL = 20MHZ
+FREQSEL = 16MHZ
 OSCLOCK = [ ]
 CRCSRC = NOCRC
-EESAVE = [ ]
+EESAVE = [X]
 RSTPINCFG = UPDI
 SUT = 64MS
 CMPA = [ ]
@@ -33,8 +33,8 @@ WINDOW = OFF
 APPEND = 0x00 (valid)
 BODCFG = 0x00 (valid)
 BOOTEND = 0x00 (valid)
-OSCCFG = 0x02 (valid)
-SYSCFG0 = 0xF6 (valid)
+OSCCFG = 0x01 (valid)
+SYSCFG0 = 0xF7 (valid)
 SYSCFG1 = 0x07 (valid)
 TCD0CFG = 0x00 (valid)
 WDTCFG = 0x00 (valid)
@@ -101,6 +101,9 @@ PC3 … 7seg C3
 
 //低電圧リセットをかける電圧
 #define MIN_SUPPLY_V 1.70
+
+//校正用に1分ごとに追加する時間 ※マイクロ秒
+#define CAL_MICRO_SEC 2400
 
 
 //---------------------------------
@@ -180,7 +183,7 @@ uint8_t old_dig5 = 0;
 
 //キャパシタに蓄えられた電源電圧と太陽電池の発電電圧を取得する関数
 void get_v (void) {
-	
+
 	uint16_t x = 0;
 	uint16_t y = 0;
 
@@ -201,13 +204,13 @@ void get_v (void) {
 	ADC0_COMMAND = 0;//AD変換終了
 
 	y = ADC0_RES;
-	
+
 	//電源電圧を算出
 	supply_v = 1023 * 1.1 / y;
 
 
 	//PB1を入力モードに戻す
-	VPORTB_DIR    &= 0b11111101; 
+	VPORTB_DIR    &= 0b11111101;
 
 	//ADC入力ピンの選択
 	// PB1ピンの電圧 / 電源電圧 を10bit(1024段階)で測定
@@ -261,7 +264,7 @@ void sens_delay_ms (uint16_t num) {
 
 			//ここにタクトスイッチが押された時の動作を記述
 			wakeup = 4000;
-		
+
 			switch (mode) {
 				case MODE_CLOCK:
 					while(!(VPORTB_IN & PIN1_bm));
@@ -271,7 +274,7 @@ void sens_delay_ms (uint16_t num) {
 						//電圧の取得
 						get_v();
 						display_v = 200;
-						wakeup = 800; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						wakeup = 1600; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -565,7 +568,7 @@ ISR (TCA0_CMP0_vect) {
 
 //外部割り込み PB0が変化したら 両方のエッジを検出する(片方エッジにしたいがそうするとなぜかスタンバイから復帰しない)
 ISR(PORTB_PORT_vect) {
-	
+
 	PORTB_INTFLAGS |= 0b00000010; //割り込み要求フラグ解除
 
 	//赤外線センサー PB0がLowに切り替わったら何もせず返す 両方のエッジを検出するようにしているので立ち下がりエッジ割り込みはここで無効にする
@@ -588,7 +591,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 800) wakeup = 800;
+		if(wakeup < 1600) wakeup = 1600;
 		return;
 	}
 
@@ -597,6 +600,12 @@ ISR(PORTB_PORT_vect) {
 
 //リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
+
+	//校正-水晶発振器が高速な場合に時刻を意図的に遅らせる処理
+	//1分毎に次の時間分だけ遅らせる
+	_delay_us(CAL_MICRO_SEC);
+
+	//カウントリセット
 	RTC_CNT = 0;
 	RTC_INTFLAGS |= 0b00000010;
 
@@ -605,7 +614,7 @@ ISR(RTC_CNT_vect) {
 		min = 0;
 		if(++hour >= 24) hour = 0;
 	}
-	
+
 
 	//1時間に1回やる処理
 	if(!min) {
@@ -642,8 +651,8 @@ int main(void) {
 	CLKCTRL_MCLKCTRLB = 0b00000111; //16分周
 
 	//入出力モード設定
-	VPORTA_DIR = 0b11111111; //ポートA 
-	VPORTB_DIR = 0b11111100; //ポートB 
+	VPORTA_DIR = 0b11111111; //ポートA
+	VPORTB_DIR = 0b11111100; //ポートB
 	VPORTC_DIR = 0b11111111; //ポートC
 
 	//出力の初期化
@@ -658,7 +667,7 @@ int main(void) {
 
 	CPU_CCP = 0xD8;//保護されたI/Oレジスタの変更を許可する
 	CLKCTRL_XOSC32KCTRLA = 0b00000001; //外付け水晶振動子 イネーブル
-	
+
 	//RTC設定
 	RTC_INTCTRL = 0b00000010; //比較一致割り込み許可
 	RTC_CLKSEL  = 0b00000010; //クロック選択 XOSC32Kからの32.768 kHz
@@ -688,7 +697,7 @@ int main(void) {
 	_delay_ms(5);
 
 	sei(); //割り込み許可
-	
+
 	while (1) {
 
 		//放電中ループ 起き続け3秒毎に電圧を計り下がっていたらブレイク
@@ -716,7 +725,7 @@ int main(void) {
 			//寝る
 			sleep_mode();
 		}
-		
+
 		sens_delay_ms(5);
 
 	}
