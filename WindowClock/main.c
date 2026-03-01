@@ -102,8 +102,8 @@ PC3 … 7seg C3
 //低電圧リセットをかける電圧
 #define MIN_SUPPLY_V 1.70
 
-//校正用に1分ごとに追加する時間 ※マイクロ秒
-#define CAL_MICRO_SEC 2400
+//校正用に1日ごとに追加する時間 ※ミリ秒 100ミリ秒以下はなぜか無効になる模様
+#define CAL_MS 2000
 
 
 //---------------------------------
@@ -602,8 +602,11 @@ ISR(PORTB_PORT_vect) {
 ISR(RTC_CNT_vect) {
 
 	//校正-水晶発振器が高速な場合に時刻を意図的に遅らせる処理
-	//1分毎に次の時間分だけ遅らせる
-	_delay_us(CAL_MICRO_SEC);
+	//23時59分から0時00分に切り替わる時に校正用の間を挿入する
+	if (mode == MODE_CLOCK && min == 59 && hour == 23) {
+		seg_all_off();
+		_delay_ms(CAL_MS);
+	}
 
 	//カウントリセット
 	RTC_CNT = 0;
