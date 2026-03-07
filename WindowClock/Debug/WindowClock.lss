@@ -1574,9 +1574,9 @@ ISR(RTC_CNT_vect) {
  952:	59 f4       	brne	.+22     	; 0x96a <__vector_6+0x50>
 		seg_all_off();
  954:	0e 94 fb 01 	call	0x3f6	; 0x3f6 <seg_all_off>
- 958:	2f e7       	ldi	r18, 0x7F	; 127
- 95a:	8a e1       	ldi	r24, 0x1A	; 26
- 95c:	96 e0       	ldi	r25, 0x06	; 6
+ 958:	2f e1       	ldi	r18, 0x1F	; 31
+ 95a:	80 e3       	ldi	r24, 0x30	; 48
+ 95c:	95 e0       	ldi	r25, 0x05	; 5
  95e:	21 50       	subi	r18, 0x01	; 1
  960:	80 40       	sbci	r24, 0x00	; 0
  962:	90 40       	sbci	r25, 0x00	; 0
