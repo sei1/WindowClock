@@ -90,11 +90,15 @@ PC3 … 7seg C3
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
+#include <avr/eeprom.h>
+#include <util/delay_basic.h>
+#include <util/atomic.h>
 
 //7セグ表示モード
 #define MODE_CLOCK 1
 #define MODE_HOUR_SET 2
 #define MODE_MIN_SET 3
+#define MODE_CAL_SET 4
 
 //キャパシタ保護のため放電動作を行うキャパシタ電圧
 #define MAX_SUPPLY_V 5.2
@@ -104,6 +108,11 @@ PC3 … 7seg C3
 
 //水晶振動子の進みを補正する時間（1分あたり・マイクロ秒）
 #define CAL_US 1482UL
+
+//補正値の範囲（µs）
+#define CAL_US_MIN 0
+#define CAL_US_MAX 9999
+#define CAL_US_DEFAULT 1482
 
 
 //---------------------------------
@@ -176,6 +185,15 @@ uint8_t old_dig1 = 0;
 uint8_t old_dig2 = 0;
 uint8_t old_dig4 = 0;
 uint8_t old_dig5 = 0;
+
+//RTC補正値（1分あたりの遅延時間 µs）
+volatile uint16_t cal_us = CAL_US_DEFAULT;
+
+//EEPROM保存領域
+uint16_t EEMEM eep_cal_us;
+
+//EEPROM保存要求フラグ
+volatile uint8_t cal_save_request = 0;
 
 //---------------------------------
 // プログラム本文
@@ -302,6 +320,21 @@ void sens_delay_ms (uint16_t num) {
 						_delay_ms(100);
 					}
 				break;
+
+				case MODE_CAL_SET:
+					while(!(VPORTB_IN & PIN1_bm));
+					if(change_mode_after) {
+						change_mode_after = 0;
+					}else{
+						//補正値を4µs増加
+						if(cal_us < CAL_US_MAX) {
+							cal_us += 4;
+						}else{
+							cal_us = CAL_US_MIN;
+						}
+						_delay_ms(100);
+					}
+				break;
 			}
 		}
 		_delay_ms(1);
@@ -326,9 +359,14 @@ void change_mode (uint8_t cmode) {
 		return;
 	}
 
-	if(++mode > MODE_MIN_SET) {
+	if(++mode > MODE_CAL_SET) {
 		mode = MODE_CLOCK;
 	}
+}
+
+//可変時間のディレイ（約4µs単位）
+void delay_cal_us(uint16_t us) {
+    _delay_loop_2(us / 4);
 }
 
 //TCA割り込み
@@ -370,6 +408,15 @@ ISR (TCA0_CMP0_vect) {
 	}else if(unset && mode == MODE_CLOCK) {//時計未設定なら全てハイフンで上書き
 		dig1 = dig2 = dig4 = dig5 = 0b10000000;
 		dig3 = 0b00000110;
+
+	}else if(mode == MODE_CAL_SET) {
+		//補正値を4桁で表示
+		dig1 = seg[cal_us % 10];
+		dig2 = seg[(cal_us / 10) % 10];
+		dig4 = seg[(cal_us / 100) % 10];
+		dig5 = seg[(cal_us / 1000) % 10];
+
+		dig3 = 0;
 
 	}else{//時刻を表示
 
@@ -554,7 +601,12 @@ ISR (TCA0_CMP0_vect) {
 					hour = min = 0;
 				}
 				RTC_CNT = 0; //時刻設定をした後、秒数が0から始まるようにする
+				uint8_t old_mode = mode;
 				change_mode(0);
+				//補正値設定モードからのモード切り替えなら補正値を保存
+				if(old_mode == MODE_CAL_SET) {
+					cal_save_request = 1;
+				}
 				change_mode_after = 1;
 
 				//スリープを挟まず3回連続で時刻合わせを行った場合は24時間表記に切り替える
@@ -606,14 +658,12 @@ ISR(PORTB_PORT_vect) {
 //リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
 
-	//割り込みフラグ解除（W1C）
-	RTC_INTFLAGS = 0b00000010;
+    //校正
+    delay_cal_us(cal_us);
 
-	//水晶振動子の進みを補正
-	_delay_us(CAL_US);
-
-	//カウントリセット
-	RTC_CNT = 0;
+    //カウントリセット
+    RTC_CNT = 0;
+    RTC_INTFLAGS = 0b00000010;
 
 
 	//時計を進める
@@ -700,6 +750,15 @@ int main(void) {
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
+	//EEPROMから補正値を読み込む
+	cal_us = eeprom_read_word(&eep_cal_us);
+
+	//未書き込み、または範囲外なら初期値を使用
+	if(cal_us == 0xFFFF ||
+	cal_us > CAL_US_MAX) {
+		cal_us = CAL_US_DEFAULT;
+	}
+
 	//少し待機
 	_delay_ms(5);
 
@@ -719,6 +778,18 @@ int main(void) {
 			wake_frames = 5200;
 		}
 
+		//時刻補正値をEEPROMに保存
+		if(cal_save_request) {
+
+			uint16_t save_value;
+
+			ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+				cal_save_request = 0;
+				save_value = cal_us;
+			}
+
+			eeprom_update_word(&eep_cal_us, save_value);
+		}
 
 		// スリープ判定
 		cli();
