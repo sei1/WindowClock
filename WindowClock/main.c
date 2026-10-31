@@ -1,6 +1,6 @@
 ﻿/*
  * ATtiny1616
- * F_CPU=250000UL
+ * F_CPU 1000000UL
  * 1MHz内部クロック(16MHz 16分周)
  *
  * Created: 2025/05/18
@@ -65,18 +65,18 @@ PC1 … 7seg C1
 PC2 … 7seg C2
 PC3 … 7seg C3
 
-                            ┏━━━       ━━━┓
-                       VDD ━┃ 1°       20 ┃━ GND
-              7seg A D PA4 ━┃ 2        19 ┃━ PA3 7seg A C/D3
-              7seg A E PA5 ━┃ 3        18 ┃━ PA2 7seg A B/D2
-              7seg A F PA6 ━┃ 4        17 ┃━ PA1 7seg A A/D1
-              7seg A G PA7 ━┃ 5        16 ┃━ PA0 RESET/UPDI
-               7seg C5 PB5 ━┃ 6        15 ┃━ PC3 7seg C3
-               7seg C4 PB4 ━┃ 7        14 ┃━ PC2 7seg C2
-           Clock TOSC1 PB3 ━┃ 8        13 ┃━ PC1 7seg C1
-           Clock TOSC2 PB2 ━┃ 9        12 ┃━ PC0 7seg A DP
-             Switch In PB1 ━┃ 10       11 ┃━ PB0 IR Sensor In
-                            ┗━━━━━━━━━━━━━┛
+							┏━━━       ━━━┓
+					   VDD ━┃ 1°       20 ┃━ GND
+			  7seg A D PA4 ━┃ 2        19 ┃━ PA3 7seg A C/D3
+			  7seg A E PA5 ━┃ 3        18 ┃━ PA2 7seg A B/D2
+			  7seg A F PA6 ━┃ 4        17 ┃━ PA1 7seg A A/D1
+			  7seg A G PA7 ━┃ 5        16 ┃━ PA0 RESET/UPDI
+			   7seg C5 PB5 ━┃ 6        15 ┃━ PC3 7seg C3
+			   7seg C4 PB4 ━┃ 7        14 ┃━ PC2 7seg C2
+		   Clock TOSC1 PB3 ━┃ 8        13 ┃━ PC1 7seg C1
+		   Clock TOSC2 PB2 ━┃ 9        12 ┃━ PC0 7seg A DP
+			 Switch In PB1 ━┃ 10       11 ┃━ PB0 IR Sensor In
+							┗━━━━━━━━━━━━━┛
 
 */
 
@@ -322,10 +322,11 @@ void seg_all_off (void) {
 void change_mode (uint8_t cmode) {
 	if(cmode) {
 		mode = cmode;
-	}else if(mode == MODE_MIN_SET) {
+		return;
+	}
+
+	if(++mode > MODE_MIN_SET) {
 		mode = MODE_CLOCK;
-	}else{
-		mode++;
 	}
 }
 
