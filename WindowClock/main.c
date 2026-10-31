@@ -102,8 +102,8 @@ PC3 … 7seg C3
 //低電圧リセットをかける電圧
 #define MIN_SUPPLY_V 1.70
 
-//校正用に1日ごとに追加する時間 ※ミリ秒 100ミリ秒以下はなぜか無効になる模様
-#define CAL_MS 2100
+//水晶振動子の進みを補正する時間（1分あたり・マイクロ秒）
+#define CAL_US 1482UL
 
 
 //---------------------------------
@@ -606,16 +606,15 @@ ISR(PORTB_PORT_vect) {
 //リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
 
-	//校正-水晶発振器が高速な場合に時刻を意図的に遅らせる処理
-	//23時59分から0時00分に切り替わる時に校正用の間を挿入する
-	if (mode == MODE_CLOCK && min == 59 && hour == 23) {
-		seg_all_off();
-		_delay_ms(CAL_MS);
-	}
+	//割り込みフラグ解除（W1C）
+	RTC_INTFLAGS = 0b00000010;
+
+	//水晶振動子の進みを補正
+	_delay_us(CAL_US);
 
 	//カウントリセット
 	RTC_CNT = 0;
-	RTC_INTFLAGS |= 0b00000010;
+
 
 	//時計を進める
 	if (mode == MODE_CLOCK && ++min >= 60) {
