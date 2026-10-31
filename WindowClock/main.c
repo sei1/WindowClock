@@ -144,7 +144,7 @@ uint8_t display_v = 0;
 //寝る前に1をセットして起きたら電圧を測定し0に戻す。0なら以後電圧を測定しない。この動作で起きた時に1回だけ電圧測定する動作になる
 uint8_t yet_v = 1;
 
-//7セグの明るさレベル 6段階 16.67% 25% 30% 50% 75% 100%
+//7セグの明るさレベル 6段階 12.5% 16.67% 25% 30% 50% 100%
 uint8_t brightness = 6;
 
 //キャパシタ保護用放電動作中フラグ
@@ -374,11 +374,11 @@ ISR (TCA0_CMP0_vect) {
 			old_hour = hour;
 
 			//12時間表記設定と24時間表記設定で表示を切り替える
-			uint8_t display_hour = 0;
+			uint8_t display_hour = hour;
+
 			if(system12) {
-				if(!hour) display_hour = 12; //0時を12時と表記
-				else if (hour > 12) display_hour = hour - 12; //13時以降を1時、2時…と表す
-				else display_hour = hour;
+				if(!hour) display_hour = 12;
+				else if(hour > 12) display_hour = hour - 12;
 			}
 
 			old_dig1 = dig1  = seg[min % 10];
@@ -452,19 +452,19 @@ ISR (TCA0_CMP0_vect) {
 		break;
 
 		case 3: //25% bn_pwm_countが4,8,12,16,20,24のタイミングで点灯
-			if(bn_pwm_count % 4) {
+			if(bn_pwm_count % 4 == 0) {
 				seg_on = 1;
 			}
 		break;
 
 		case 4: //33.33% bn_pwm_countが3,6,9,12,15,18,21,24のタイミングで点灯
-			if(bn_pwm_count % 3) {
+			if(bn_pwm_count % 3 == 0) {
 				seg_on = 1;
 			}
 		break;
 
 		case 5: //50% bn_pwm_countが2,4,6,8,10,12,14,16,18,20,22,24のタイミングで点灯
-			if(bn_pwm_count % 2) {
+			if(bn_pwm_count % 2 == 0) {
 				seg_on = 1;
 			}
 		break;
