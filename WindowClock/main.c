@@ -121,7 +121,7 @@ volatile uint8_t min  = 0;
 volatile uint8_t hour = 0;
 
 //起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
-volatile uint16_t wakeup = 0;
+volatile uint16_t wake_frames = 0;
 
 //表示モード
 volatile uint8_t mode = MODE_CLOCK;
@@ -137,7 +137,7 @@ uint8_t change_mode_after = 0;
 float supply_v = 0.0;
 float  solar_v = 0.0;
 
-//MODE_CLOCKでボタンを押した時(非長押し)、一時的に電圧を表示するフラグ。wakeupと同様にタイマーでデクリメントしていき0になったら表示を戻す
+//MODE_CLOCKでボタンを押した時(非長押し)、一時的に電圧を表示するフラグ。wake_framesと同様にタイマーでデクリメントしていき0になったら表示を戻す
 uint8_t display_v = 0;
 
 //起きたのにまだ電圧測定してないの？的なフラグ
@@ -264,7 +264,7 @@ void sens_delay_ms (uint16_t num) {
 		if(!(VPORTB_IN & PIN1_bm)) {
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 4000;
+			wake_frames = 4000;
 
 			switch (mode) {
 				case MODE_CLOCK:
@@ -275,7 +275,7 @@ void sens_delay_ms (uint16_t num) {
 						//電圧の取得
 						get_v();
 						display_v = 200;
-						wakeup = 1600; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						wake_frames = 1600; //電圧表示だけなら長く表示する必要ないのでwake_frames値上書き
 						_delay_ms(100);
 					}
 				break;
@@ -337,9 +337,9 @@ ISR (TCA0_CMP0_vect) {
 	TCA0_SINGLE_CNT = 0;//カウントリセット
 	TCA0_SINGLE_INTFLAGS = TCA_SINGLE_CMP0_bm; //割り込み要求フラグを解除
 
-	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
+	//wake_framesが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
-	if(!wakeup) {
+	if(!wake_frames) {
 		seg_all_off();
 		return;
 	}
@@ -537,8 +537,8 @@ ISR (TCA0_CMP0_vect) {
 			colon = 0b00000000;
 		}
 
-		//スリープへ向けwakeupを減らす
-		if(wakeup) wakeup--;
+		//スリープへ向けwake_framesを減らす
+		if(wake_frames) wake_frames--;
 
 		//電圧表示時間を減らす
 		if(display_v) display_v--;
@@ -585,7 +585,7 @@ ISR(PORTB_PORT_vect) {
 	if(VPORTB_IN & PIN0_bm) {
 
 		//前回寝てから3カウント以内だったら何もせずに再び寝る
-		if(!wakeup && (RTC_CNT - last_rtc_cnt) < 3) {
+		if(!wake_frames && (RTC_CNT - last_rtc_cnt) < 3) {
 			return;
 		}
 
@@ -596,7 +596,7 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 1600) wakeup = 1600;
+		if(wake_frames < 1600) wake_frames = 1600;
 		return;
 	}
 
@@ -627,7 +627,7 @@ ISR(RTC_CNT_vect) {
 	//1時間に1回やる処理
 	if(!min) {
 
-		if(!wakeup){
+		if(!wake_frames){
 			get_v();
 			//低電圧再起動処理 起きてる時にやると一瞬7セグがちらつくので起きてない時(厳密には起きてるカウントがされていない時)にやる
 			if(supply_v <= MIN_SUPPLY_V) {
@@ -639,7 +639,7 @@ ISR(RTC_CNT_vect) {
 			}
 			//高電圧放電処理
 			if(supply_v >= MAX_SUPPLY_V) {
-				wakeup = 5200;
+				wake_frames = 5200;
 				discharge = 1;
 			}
 		}
@@ -713,17 +713,17 @@ int main(void) {
 			get_v();
 			if(supply_v < (MAX_SUPPLY_V - 0.1)) {
 				discharge = 0;
-				wakeup = 0;
+				wake_frames = 0;
 				break;
 			}
 			sens_delay_ms(3000);
-			wakeup = 5200;
+			wake_frames = 5200;
 		}
 
 
 		// スリープ判定
 		cli();
-		if(wakeup) {
+		if(wake_frames) {
 			last_rtc_cnt = RTC_CNT;
 			sei();
 		}else{

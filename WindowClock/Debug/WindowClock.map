@@ -553,8 +553,9 @@ END GROUP
  .bss.long_push
                 0x0080382e        0x2 main.o
                 0x0080382e                long_push
- .bss.wakeup    0x00803830        0x2 main.o
-                0x00803830                wakeup
+ .bss.wake_frames
+                0x00803830        0x2 main.o
+                0x00803830                wake_frames
  .bss.hour      0x00803832        0x1 main.o
                 0x00803832                hour
  .bss.min       0x00803833        0x1 main.o
@@ -660,11 +661,11 @@ END GROUP
  *(.debug_frame)
  .debug_frame   0x00000000      0x1bc main.o
 
-.debug_str      0x00000000      0xdec
+.debug_str      0x00000000      0xdf1
  *(.debug_str)
  .debug_str     0x00000000      0xacf C:/Program Files (x86)/Atmel/Studio/7.0/Packs/atmel/ATtiny_DFP/1.10.348/gcc/dev/attiny1616/avrxmega3/crtattiny1616.o
- .debug_str     0x00000acf      0x31d main.o
-                                0x382 (size before relaxing)
+ .debug_str     0x00000acf      0x322 main.o
+                                0x387 (size before relaxing)
 
 .debug_loc      0x00000000      0x8bc
  *(.debug_loc)

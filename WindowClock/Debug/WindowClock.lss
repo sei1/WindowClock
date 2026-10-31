@@ -23,11 +23,11 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING
   9 .debug_frame  000001bc  00000000  00000000  000057f8  2**2
                   CONTENTS, READONLY, DEBUGGING
- 10 .debug_str    00000dec  00000000  00000000  000059b4  2**0
+ 10 .debug_str    00000df1  00000000  00000000  000059b4  2**0
                   CONTENTS, READONLY, DEBUGGING
- 11 .debug_loc    000008bc  00000000  00000000  000067a0  2**0
+ 11 .debug_loc    000008bc  00000000  00000000  000067a5  2**0
                   CONTENTS, READONLY, DEBUGGING
- 12 .debug_ranges 00000048  00000000  00000000  0000705c  2**0
+ 12 .debug_ranges 00000048  00000000  00000000  00007061  2**0
                   CONTENTS, READONLY, DEBUGGING
 
 Disassembly of section .text:
@@ -441,11 +441,11 @@ void sens_delay_ms (uint16_t num) {
  30c:	64 c0       	rjmp	.+200    	; 0x3d6 <sens_delay_ms+0xdc>
 
 			//ここにタクトスイッチが押された時の動作を記述
-			wakeup = 4000;
+			wake_frames = 4000;
  30e:	80 ea       	ldi	r24, 0xA0	; 160
  310:	9f e0       	ldi	r25, 0x0F	; 15
- 312:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- 316:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ 312:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ 316:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 
 			switch (mode) {
  31a:	80 91 08 38 	lds	r24, 0x3808	; 0x803808 <mode>
@@ -474,11 +474,11 @@ void sens_delay_ms (uint16_t num) {
 						display_v = 200;
  342:	88 ec       	ldi	r24, 0xC8	; 200
  344:	80 93 24 38 	sts	0x3824, r24	; 0x803824 <display_v>
-						wakeup = 1600; //電圧表示だけなら長く表示する必要ないのでwakeup値上書き
+						wake_frames = 1600; //電圧表示だけなら長く表示する必要ないのでwake_frames値上書き
  348:	80 e4       	ldi	r24, 0x40	; 64
  34a:	96 e0       	ldi	r25, 0x06	; 6
- 34c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- 350:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ 34c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ 350:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 	#else
 		//round up by default
 		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
@@ -672,11 +672,11 @@ ISR (TCA0_CMP0_vect) {
  460:	80 e1       	ldi	r24, 0x10	; 16
  462:	80 93 0b 0a 	sts	0x0A0B, r24	; 0x800a0b <__RODATA_PM_OFFSET__+0x7f8a0b>
 
-	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
+	//wake_framesが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
-	if(!wakeup) {
- 466:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 46a:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+	if(!wake_frames) {
+ 466:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 46a:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  46e:	89 2b       	or	r24, r25
  470:	19 f4       	brne	.+6      	; 0x478 <__vector_10+0x4e>
 		seg_all_off();
@@ -1344,17 +1344,17 @@ ISR (TCA0_CMP0_vect) {
  7d6:	10 92 17 38 	sts	0x3817, r1	; 0x803817 <colon.3365>
 		}
 
-		//スリープへ向けwakeupを減らす
-		if(wakeup) wakeup--;
- 7da:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 7de:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+		//スリープへ向けwake_framesを減らす
+		if(wake_frames) wake_frames--;
+ 7da:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 7de:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  7e2:	89 2b       	or	r24, r25
  7e4:	49 f0       	breq	.+18     	; 0x7f8 <__vector_10+0x3ce>
- 7e6:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 7ea:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+ 7e6:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 7ea:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  7ee:	01 97       	sbiw	r24, 0x01	; 1
- 7f0:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- 7f4:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ 7f0:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ 7f4:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 
 		//電圧表示時間を減らす
 		if(display_v) display_v--;
@@ -1497,9 +1497,9 @@ ISR(PORTB_PORT_vect) {
  8e4:	27 c0       	rjmp	.+78     	; 0x934 <__vector_4+0x82>
 
 		//前回寝てから3カウント以内だったら何もせずに再び寝る
-		if(!wakeup && (RTC_CNT - last_rtc_cnt) < 3) {
- 8e6:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 8ea:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+		if(!wake_frames && (RTC_CNT - last_rtc_cnt) < 3) {
+ 8e6:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 8ea:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  8ee:	89 2b       	or	r24, r25
  8f0:	61 f4       	brne	.+24     	; 0x90a <__vector_4+0x58>
  8f2:	80 91 48 01 	lds	r24, 0x0148	; 0x800148 <__RODATA_PM_OFFSET__+0x7f8148>
@@ -1525,16 +1525,16 @@ ISR(PORTB_PORT_vect) {
 		}
 
 		//一定時間起き上がらせる
-		if(wakeup < 1600) wakeup = 1600;
- 91a:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 91e:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+		if(wake_frames < 1600) wake_frames = 1600;
+ 91a:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 91e:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  922:	80 34       	cpi	r24, 0x40	; 64
  924:	96 40       	sbci	r25, 0x06	; 6
  926:	30 f4       	brcc	.+12     	; 0x934 <__vector_4+0x82>
  928:	80 e4       	ldi	r24, 0x40	; 64
  92a:	96 e0       	ldi	r25, 0x06	; 6
- 92c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- 930:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ 92c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ 930:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 		return;
 	}
 
@@ -1645,9 +1645,9 @@ ISR(RTC_CNT_vect) {
  9e8:	81 11       	cpse	r24, r1
  9ea:	44 c0       	rjmp	.+136    	; 0xa74 <__vector_6+0x11e>
 
-		if(!wakeup){
- 9ec:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- 9f0:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+		if(!wake_frames){
+ 9ec:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ 9f0:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  9f4:	89 2b       	or	r24, r25
  9f6:	09 f0       	breq	.+2      	; 0x9fa <__vector_6+0xa4>
  9f8:	3d c0       	rjmp	.+122    	; 0xa74 <__vector_6+0x11e>
@@ -1700,11 +1700,11 @@ ISR(RTC_CNT_vect) {
  a5a:	0e 94 4f 07 	call	0xe9e	; 0xe9e <__gesf2>
  a5e:	88 23       	and	r24, r24
  a60:	4c f0       	brlt	.+18     	; 0xa74 <__vector_6+0x11e>
-				wakeup = 5200;
+				wake_frames = 5200;
  a62:	80 e5       	ldi	r24, 0x50	; 80
  a64:	94 e1       	ldi	r25, 0x14	; 20
- a66:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- a6a:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ a66:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ a6a:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 				discharge = 1;
  a6e:	81 e0       	ldi	r24, 0x01	; 1
  a70:	80 93 23 38 	sts	0x3823, r24	; 0x803823 <discharge>
@@ -1873,9 +1873,9 @@ int main(void) {
  b60:	3c f4       	brge	.+14     	; 0xb70 <main+0xda>
 				discharge = 0;
  b62:	10 92 23 38 	sts	0x3823, r1	; 0x803823 <discharge>
-				wakeup = 0;
- b66:	10 92 30 38 	sts	0x3830, r1	; 0x803830 <wakeup>
- b6a:	10 92 31 38 	sts	0x3831, r1	; 0x803831 <wakeup+0x1>
+				wake_frames = 0;
+ b66:	10 92 30 38 	sts	0x3830, r1	; 0x803830 <wake_frames>
+ b6a:	10 92 31 38 	sts	0x3831, r1	; 0x803831 <wake_frames+0x1>
 				break;
  b6e:	0e c0       	rjmp	.+28     	; 0xb8c <main+0xf6>
 			}
@@ -1883,11 +1883,11 @@ int main(void) {
  b70:	88 eb       	ldi	r24, 0xB8	; 184
  b72:	9b e0       	ldi	r25, 0x0B	; 11
  b74:	0e 94 7d 01 	call	0x2fa	; 0x2fa <sens_delay_ms>
-			wakeup = 5200;
+			wake_frames = 5200;
  b78:	80 e5       	ldi	r24, 0x50	; 80
  b7a:	94 e1       	ldi	r25, 0x14	; 20
- b7c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wakeup>
- b80:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wakeup+0x1>
+ b7c:	80 93 30 38 	sts	0x3830, r24	; 0x803830 <wake_frames>
+ b80:	90 93 31 38 	sts	0x3831, r25	; 0x803831 <wake_frames+0x1>
 	sei(); //割り込み許可
 
 	while (1) {
@@ -1897,16 +1897,16 @@ int main(void) {
  b84:	80 91 23 38 	lds	r24, 0x3823	; 0x803823 <discharge>
  b88:	81 11       	cpse	r24, r1
  b8a:	d9 cf       	rjmp	.-78     	; 0xb3e <main+0xa8>
-			wakeup = 5200;
+			wake_frames = 5200;
 		}
 
 
 		// スリープ判定
 		cli();
  b8c:	f8 94       	cli
-		if(wakeup) {
- b8e:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wakeup>
- b92:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wakeup+0x1>
+		if(wake_frames) {
+ b8e:	80 91 30 38 	lds	r24, 0x3830	; 0x803830 <wake_frames>
+ b92:	90 91 31 38 	lds	r25, 0x3831	; 0x803831 <wake_frames+0x1>
  b96:	89 2b       	or	r24, r25
  b98:	51 f0       	breq	.+20     	; 0xbae <main+0x118>
 			last_rtc_cnt = RTC_CNT;
