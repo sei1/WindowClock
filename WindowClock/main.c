@@ -117,14 +117,14 @@ uint8_t seg[10] = {
 };
 
 //7セグLEDに表示させる4桁の数字
-uint8_t min  = 0;
-uint8_t hour = 0;
+volatile uint8_t min  = 0;
+volatile uint8_t hour = 0;
 
 //起き上がったら1以上の値を入れてタイマーでデクリメントしていく変数。0になったらスリープする
-uint16_t wakeup = 0;
+volatile uint16_t wakeup = 0;
 
 //表示モード
-uint8_t mode = MODE_CLOCK;
+volatile uint8_t mode = MODE_CLOCK;
 
 //ボタン 長押しチェック用変数
 volatile uint16_t long_push = 0;
@@ -171,6 +171,7 @@ uint8_t v_dig5 = 0;
 //ひとつ古い7セグの表示値を保存しておく変数
 uint8_t old_min = 255;
 uint8_t old_hour = 255;
+uint8_t old_system12 = 255;
 uint8_t old_dig1 = 0;
 uint8_t old_dig2 = 0;
 uint8_t old_dig4 = 0;
@@ -334,7 +335,7 @@ void change_mode (uint8_t cmode) {
 ISR (TCA0_CMP0_vect) {
 
 	TCA0_SINGLE_CNT = 0;//カウントリセット
-	TCA0_SINGLE_INTFLAGS |= 0b00010000; //割り込み要求フラグを解除
+	TCA0_SINGLE_INTFLAGS = TCA_SINGLE_CMP0_bm; //割り込み要求フラグを解除
 
 	//wakeupが0ならセグをすべて消灯してそれ以外を実行しない
 	//メインループのseg_all_off関数とsleep_mode関数の間にこの割り込みが入り中途半端に7セグが点灯した状態でスリープするのを防ぐ記述
@@ -345,7 +346,11 @@ ISR (TCA0_CMP0_vect) {
 
 	static uint8_t out_dig = 0;//発光させる桁
 	static uint8_t colon = 0;//点滅コロン
-	uint8_t dig1, dig2, dig3, dig4, dig5 = 0;
+	uint8_t dig1 = 0;
+	uint8_t dig2 = 0;
+	uint8_t dig3 = 0;
+	uint8_t dig4 = 0;
+	uint8_t dig5 = 0;
 	uint8_t dig2c, dig5c;
 	dig2c = dig5c = 0;
 
@@ -369,10 +374,11 @@ ISR (TCA0_CMP0_vect) {
 	}else{//時刻を表示
 
 		//時刻が更新されていれば表示を刷新するための計算を行う。更新されていなければ前回表示したものをそのまま表示
-		if(old_min != min || old_hour != hour) {
+		if(old_min != min || old_hour != hour || old_system12 != system12) {
 			//これまでの値を古い値を格納する変数に移し替える
 			old_min = min;
 			old_hour = hour;
+			old_system12 = system12;
 
 			//12時間表記設定と24時間表記設定で表示を切り替える
 			uint8_t display_hour = hour;
@@ -556,9 +562,7 @@ ISR (TCA0_CMP0_vect) {
 					s24count++;
 					if(s24count >= 3) {
 						s24count = 0;
-						system12 = 0;
-					}else{
-						system12 = 1;
+						system12 = !system12;
 					}
 				}
 			}
@@ -716,8 +720,12 @@ int main(void) {
 			wakeup = 5200;
 		}
 
+
+		// スリープ判定
+		cli();
 		if(wakeup) {
 			last_rtc_cnt = RTC_CNT;
+			sei();
 		}else{
 			//寝る準備
 			seg_all_off();
@@ -727,6 +735,7 @@ int main(void) {
 			s24count = 0;
 			old_min = old_hour = 255;
 			//寝る
+			sei();
 			sleep_mode();
 		}
 
