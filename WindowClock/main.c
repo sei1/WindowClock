@@ -106,13 +106,10 @@ PC3 … 7seg C3
 //低電圧リセットをかける電圧
 #define MIN_SUPPLY_V 1.70
 
-//水晶振動子の進みを補正する時間（1分あたり・マイクロ秒）
-#define CAL_US 1482UL
-
 //補正値の範囲（µs）
 #define CAL_US_MIN 0
-#define CAL_US_MAX 9999
-#define CAL_US_DEFAULT 1482
+#define CAL_US_MAX 4000
+#define CAL_US_DEFAULT 1000
 
 
 //---------------------------------
@@ -140,7 +137,7 @@ volatile uint16_t long_push = 0;
 
 //長押しでモードを切り替えた後、ボタンを離した時に1回ボタンを入力したことになってしまうのを防ぐため
 //モード切替後最初のボタン入力を1回無効にするフラグ
-uint8_t change_mode_after = 0;
+volatile uint8_t change_mode_after = 0;
 
 //現在の電源電圧と太陽電池電圧
 float supply_v = 0.0;
@@ -194,6 +191,12 @@ uint16_t EEMEM eep_cal_us;
 
 //EEPROM保存要求フラグ
 volatile uint8_t cal_save_request = 0;
+
+//補正値表示用の7セグデータ
+volatile uint8_t cal_dig1 = 0;
+volatile uint8_t cal_dig2 = 0;
+volatile uint8_t cal_dig4 = 0;
+volatile uint8_t cal_dig5 = 0;
 
 //---------------------------------
 // プログラム本文
@@ -275,6 +278,23 @@ void get_v (void) {
 	v_dig5  = seg[(slv / 10) % 10];
 }
 
+//補正値の表示データを更新
+void update_cal_display(uint16_t value) {
+
+    uint8_t d1 = seg[value % 10];
+    uint8_t d2 = seg[(value / 10) % 10];
+    uint8_t d4 = seg[(value / 100) % 10];
+    uint8_t d5 = seg[(value / 1000) % 10];
+
+    //表示データを更新
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        cal_dig1 = d1;
+        cal_dig2 = d2;
+        cal_dig4 = d4;
+        cal_dig5 = d5;
+    }
+}
+
 //ボタン操作を受け付けながら待機する関数
 void sens_delay_ms (uint16_t num) {
 
@@ -332,6 +352,9 @@ void sens_delay_ms (uint16_t num) {
 						}else{
 							cal_us = CAL_US_MIN;
 						}
+						//表示データを更新
+        				update_cal_display(cal_us);
+
 						_delay_ms(100);
 					}
 				break;
@@ -359,7 +382,7 @@ void change_mode (uint8_t cmode) {
 		return;
 	}
 
-	if(++mode > MODE_CAL_SET) {
+	if(++mode > MODE_MIN_SET) {
 		mode = MODE_CLOCK;
 	}
 }
@@ -410,11 +433,11 @@ ISR (TCA0_CMP0_vect) {
 		dig3 = 0b00000110;
 
 	}else if(mode == MODE_CAL_SET) {
-		//補正値を4桁で表示
-		dig1 = seg[cal_us % 10];
-		dig2 = seg[(cal_us / 10) % 10];
-		dig4 = seg[(cal_us / 100) % 10];
-		dig5 = seg[(cal_us / 1000) % 10];
+		//計算済みの補正値表示データを使用
+		dig1 = cal_dig1;
+		dig2 = cal_dig2;
+		dig4 = cal_dig4;
+		dig5 = cal_dig5;
 
 		dig3 = 0;
 
@@ -609,9 +632,16 @@ ISR (TCA0_CMP0_vect) {
 				}
 				change_mode_after = 1;
 
-				//スリープを挟まず3回連続で時刻合わせを行った場合は24時間表記に切り替える
+				//特殊操作
 				if(mode == MODE_HOUR_SET) {
 					s24count++;
+					//スリープを挟まず2回連続で時刻合わせを行い11:11に設定した状態で3回目の時刻合わせを試みた場合、
+					//補正値設定モードに入る
+					if(s24count == 3 && (hour == 11 || hour == 23) && min == 11) {
+						s24count = 0;
+						change_mode(MODE_CAL_SET);
+					}
+					//スリープを挟まず3回連続で時刻合わせを行った場合は24時間表記に切り替える
 					if(s24count >= 3) {
 						s24count = 0;
 						system12 = !system12;
@@ -750,6 +780,7 @@ int main(void) {
 
 	set_sleep_mode(SLEEP_MODE_STANDBY); //スリープモードを設定
 
+
 	//EEPROMから補正値を読み込む
 	cal_us = eeprom_read_word(&eep_cal_us);
 
@@ -758,6 +789,9 @@ int main(void) {
 	cal_us > CAL_US_MAX) {
 		cal_us = CAL_US_DEFAULT;
 	}
+	//補正値表示データを初期化
+	update_cal_display(cal_us);
+
 
 	//少し待機
 	_delay_ms(5);
