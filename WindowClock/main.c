@@ -189,6 +189,9 @@ volatile uint16_t cal_us = CAL_US_DEFAULT;
 //EEPROM保存領域
 uint16_t EEMEM eep_cal_us;
 
+//補正時間の累積値
+uint32_t cal_accum_us = 0;
+
 //EEPROM保存要求フラグ
 volatile uint8_t cal_save_request = 0;
 
@@ -346,12 +349,22 @@ void sens_delay_ms (uint16_t num) {
 					if(change_mode_after) {
 						change_mode_after = 0;
 					}else{
-						//補正値を4µs増加
-						if(cal_us < CAL_US_MAX) {
-							cal_us += 4;
-						}else{
-							cal_us = CAL_US_MIN;
+						if(hour == 9 || hour == 22) { //22:22で補正値設定に入った場合、増加
+							//補正値を4µs増加
+							if(cal_us < CAL_US_MAX) {
+								cal_us += 4;
+							}else{
+								cal_us = CAL_US_MIN;
+							}
+						}else if(hour == 11 || hour == 23) { //11:11で補正値設定に入った場合、減少
+							//補正値を4µs減少
+							if(cal_us > CAL_US_MIN && cal_us > 3) {
+								cal_us -= 4;
+							}else{
+								cal_us = CAL_US_MAX;
+							}
 						}
+
 						//表示データを更新
         				update_cal_display(cal_us);
 
@@ -385,11 +398,6 @@ void change_mode (uint8_t cmode) {
 	if(++mode > MODE_MIN_SET) {
 		mode = MODE_CLOCK;
 	}
-}
-
-//可変時間のディレイ（約4µs単位）
-void delay_cal_us(uint16_t us) {
-    _delay_loop_2(us / 4);
 }
 
 //TCA割り込み
@@ -529,7 +537,7 @@ ISR (TCA0_CMP0_vect) {
 		break;
 
 		case 3: //25% bn_pwm_countが4,8,12,16,20,24のタイミングで点灯
-			if(bn_pwm_count % 4 == 0) {
+			if((bn_pwm_count & 0x03) == 0) { //(bn_pwm_count % 4 == 0)のビット演算置き換え
 				seg_on = 1;
 			}
 		break;
@@ -541,7 +549,7 @@ ISR (TCA0_CMP0_vect) {
 		break;
 
 		case 5: //50% bn_pwm_countが2,4,6,8,10,12,14,16,18,20,22,24のタイミングで点灯
-			if(bn_pwm_count % 2 == 0) {
+			if((bn_pwm_count & 0x01) == 0) { //(bn_pwm_count % 2 == 0)のビット演算置き換え
 				seg_on = 1;
 			}
 		break;
@@ -635,11 +643,14 @@ ISR (TCA0_CMP0_vect) {
 				//特殊操作
 				if(mode == MODE_HOUR_SET) {
 					s24count++;
-					//スリープを挟まず2回連続で時刻合わせを行い11:11に設定した状態で3回目の時刻合わせを試みた場合、
+					//スリープを挟まず2回連続で時刻合わせを行い11:11もしくは22:22に設定した状態で3回目の時刻合わせを試みた場合、
 					//補正値設定モードに入る
-					if(s24count == 3 && (hour == 11 || hour == 23) && min == 11) {
-						s24count = 0;
-						change_mode(MODE_CAL_SET);
+					if(s24count == 3) {
+						if(((hour == 11 || hour == 23) && min == 11) || ((hour == 9 || hour == 22) && min == 22)) {
+							s24count = 0;
+							change_mode(MODE_CAL_SET);
+						}
+
 					}
 					//スリープを挟まず3回連続で時刻合わせを行った場合は24時間表記に切り替える
 					if(s24count >= 3) {
@@ -688,8 +699,16 @@ ISR(PORTB_PORT_vect) {
 //リアルタイムクロック 比較一致割り込み
 ISR(RTC_CNT_vect) {
 
-    //校正
-    delay_cal_us(cal_us);
+    //補正時間を累積
+    cal_accum_us += cal_us;
+
+    //通常は60秒、補正時は60.5秒
+    if(cal_accum_us >= 500000UL) {
+        cal_accum_us -= 500000UL;
+        RTC_CMP = 120;
+    }else{
+        RTC_CMP = 119;
+    }
 
     //カウントリセット
     RTC_CNT = 0;
